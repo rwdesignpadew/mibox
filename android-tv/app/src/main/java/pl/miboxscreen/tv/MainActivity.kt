@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity(), SignalClient.Listener {
         }
         setContentView(FrameLayout(this).apply {
             addView(renderer, FrameLayout.LayoutParams(-1, -1))
-            addView(overlay, FrameLayout.LayoutParams(-1, -1))
+            addView(this@MainActivity.overlay, FrameLayout.LayoutParams(-1, -1))
         })
 
         signalClient = SignalClient(BuildConfig.SIGNALING_URL, this)

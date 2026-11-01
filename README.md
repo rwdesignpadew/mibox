@@ -46,6 +46,15 @@ ipconfig
 3. Zbuduj APK (`Build > Build APK`) i zainstaluj je na Mi Boxie przez ADB lub Android Studio.
 4. Uruchom **MiBox Screen**. Telewizor pokaże 6-cyfrowy kod.
 
+Build można też wykonać bez Android Studio, używając dołączonego Gradle Wrappera:
+
+```powershell
+cd android-tv
+.\gradlew.bat assembleDebug -PSIGNALING_URL=ws://ADRES_IP:8080/signal
+```
+
+Gotowy plik znajdzie się w `android-tv/app/build/outputs/apk/debug/app-debug.apk`.
+
 Przykładowa instalacja przez ADB:
 
 ```powershell
