@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.MiBoxScreen" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#70E1C8</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowBackground">#07111F</item>
+    </style>
+</resources>
+

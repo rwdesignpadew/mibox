@@ -1,0 +1,44 @@
+name: MiBoxScreen
+options:
+  bundleIdPrefix: pl.miboxscreen
+  deploymentTarget:
+    iOS: "16.0"
+packages:
+  WebRTC:
+    url: https://github.com/stasel/WebRTC.git
+    branch: latest
+settings:
+  base:
+    SWIFT_VERSION: 5.10
+    CODE_SIGN_STYLE: Automatic
+targets:
+  MiBoxScreen:
+    type: application
+    platform: iOS
+    sources:
+      - path: MiBoxScreen
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: pl.miboxscreen.ios
+        INFOPLIST_FILE: MiBoxScreen/Info.plist
+        CODE_SIGN_ENTITLEMENTS: MiBoxScreen/MiBoxScreen.entitlements
+    dependencies:
+      - target: ScreenBroadcast
+    postCompileScripts: []
+  ScreenBroadcast:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ScreenBroadcast
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: pl.miboxscreen.ios.broadcast
+        INFOPLIST_FILE: ScreenBroadcast/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ScreenBroadcast/ScreenBroadcast.entitlements
+        SKIP_INSTALL: YES
+    dependencies:
+      - package: WebRTC
+        product: WebRTC
+
