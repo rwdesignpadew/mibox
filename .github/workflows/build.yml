@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  android-tv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Build Android TV APK
+        working-directory: android-tv
+        run: ./gradlew assembleDebug -PSIGNALING_URL=ws://192.168.1.10:8080/signal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MiBoxScreen-TV-debug
+          path: android-tv/app/build/outputs/apk/debug/app-debug.apk
+
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+      - name: Build iOS app without code signing
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -project MiBoxScreen.xcodeproj \
+            -scheme MiBoxScreen \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath Build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MiBoxScreen-iOS-unsigned
+          path: ios/Build/Build/Products/Debug-iphoneos/MiBoxScreen.app
