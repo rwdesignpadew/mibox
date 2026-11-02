@@ -11,6 +11,8 @@ settings:
   base:
     SWIFT_VERSION: 5.10
     CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: 1.0.0
+    CURRENT_PROJECT_VERSION: 1
 targets:
   MiBoxScreen:
     type: application
@@ -24,6 +26,11 @@ targets:
         INFOPLIST_FILE: MiBoxScreen/Info.plist
         CODE_SIGN_ENTITLEMENTS: MiBoxScreen/MiBoxScreen.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      configs:
+        Release:
+          CODE_SIGN_STYLE: Manual
+          DEVELOPMENT_TEAM: PY32XNF74N
+          PROVISIONING_PROFILE_SPECIFIER: MiBox Screen App Store
     dependencies:
       - target: ScreenBroadcast
     postCompileScripts: []
@@ -39,6 +46,11 @@ targets:
         INFOPLIST_FILE: ScreenBroadcast/Info.plist
         CODE_SIGN_ENTITLEMENTS: ScreenBroadcast/ScreenBroadcast.entitlements
         SKIP_INSTALL: YES
+      configs:
+        Release:
+          CODE_SIGN_STYLE: Manual
+          DEVELOPMENT_TEAM: PY32XNF74N
+          PROVISIONING_PROFILE_SPECIFIER: MiBox Screen Broadcast App Store
     dependencies:
       - package: WebRTC
         product: WebRTC
