@@ -9,6 +9,8 @@ struct ContentView: View {
     @StateObject private var discovery = ReceiverDiscovery()
     @StateObject private var purchases = PurchaseManager()
     @State private var showsPro = ProcessInfo.processInfo.arguments.contains("--show-pro")
+    @State private var showsQRScanner = false
+    @State private var connectionError: String?
 
     var body: some View {
         NavigationStack {
@@ -33,12 +35,30 @@ struct ContentView: View {
                 .padding()
                 .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
 
-                TextField("6-cyfrowy kod z telewizora", text: $roomCode)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .onChange(of: roomCode) { value in
-                        roomCode = String(value.filter(\.isNumber).prefix(6))
+                Button {
+                    showsQRScanner = true
+                } label: {
+                    Label("Skanuj kod QR z telewizora", systemImage: "qrcode.viewfinder")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+
+                DisclosureGroup("Połącz bez aparatu") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Wpisz sześciocyfrowy kod zapasowy z telewizora. Aplikacja wyszuka odbiornik w sieci lokalnej.")
+                            .foregroundStyle(.secondary)
+                        TextField("6-cyfrowy kod z telewizora", text: $roomCode)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(.roundedBorder)
+                            .onChange(of: roomCode) { value in
+                                roomCode = String(value.filter(\.isNumber).prefix(6))
+                            }
+                        Button("Wyszukaj telewizor") { discovery.restart() }
+                            .buttonStyle(.bordered)
                     }
+                    .padding(.top, 8)
+                }
 
                 if roomCode.count == 6, validServerURL {
                     VStack(spacing: 10) {
@@ -49,16 +69,24 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Text("Uruchom odbiornik na telewizorze i wpisz wyświetlony kod.")
+                    Text("Uruchom MiBox Screen na telewizorze, a następnie zeskanuj wyświetlony kod QR.")
                         .foregroundStyle(.secondary)
                 }
 
                 DisclosureGroup("Połączenie ręczne") {
-                    TextField("ws://adres-telewizora:8080/signal", text: $serverURL)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.URL)
-                        .textFieldStyle(.roundedBorder)
-                        .padding(.top, 8)
+                    VStack(spacing: 10) {
+                        TextField("ws://adres-telewizora:8080/signal", text: $serverURL)
+                            .textInputAutocapitalization(.never)
+                            .keyboardType(.URL)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("6-cyfrowy kod z telewizora", text: $roomCode)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(.roundedBorder)
+                            .onChange(of: roomCode) { value in
+                                roomCode = String(value.filter(\.isNumber).prefix(6))
+                            }
+                    }
+                    .padding(.top, 8)
                 }
                 .font(.footnote)
 
@@ -81,6 +109,29 @@ struct ContentView: View {
             .sheet(isPresented: $showsPro) {
                 ProPurchaseView(purchases: purchases)
             }
+            .fullScreenCover(isPresented: $showsQRScanner) {
+                ZStack(alignment: .topTrailing) {
+                    QRScannerView { payload in
+                        handleScannedPayload(payload)
+                    } onError: { message in
+                        connectionError = message
+                        showsQRScanner = false
+                    }
+                    .ignoresSafeArea()
+
+                    Button("Zamknij") { showsQRScanner = false }
+                        .buttonStyle(.borderedProminent)
+                        .padding()
+                }
+            }
+            .alert("Nie można połączyć", isPresented: Binding(
+                get: { connectionError != nil },
+                set: { if !$0 { connectionError = nil } }
+            )) {
+                Button("OK", role: .cancel) { connectionError = nil }
+            } message: {
+                Text(connectionError ?? "")
+            }
             .onAppear { discovery.start() }
             .onDisappear { discovery.stop() }
             .onChange(of: discovery.serverURL) { value in
@@ -92,6 +143,25 @@ struct ContentView: View {
     private var validServerURL: Bool {
         guard let url = URL(string: serverURL), let scheme = url.scheme else { return false }
         return (scheme == "ws" || scheme == "wss") && url.host != nil
+    }
+
+    private func handleScannedPayload(_ payload: String) {
+        guard let components = URLComponents(string: payload),
+              components.scheme == "miboxscreen",
+              components.host == "connect" else {
+            connectionError = "To nie jest kod QR aplikacji MiBox Screen."
+            return
+        }
+        let values = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        guard let host = values["host"], !host.isEmpty,
+              let port = values["port"], UInt16(port) != nil,
+              let room = values["room"], room.count == 6, room.allSatisfy(\.isNumber) else {
+            connectionError = "Kod QR nie zawiera prawidłowych danych połączenia."
+            return
+        }
+        serverURL = "ws://\(host):\(port)/signal"
+        roomCode = room
+        showsQRScanner = false
     }
 }
 

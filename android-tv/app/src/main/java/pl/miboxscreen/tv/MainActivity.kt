@@ -1,25 +1,34 @@
 package pl.miboxscreen.tv
 
 import android.os.Bundle
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
 import org.json.JSONObject
 import org.webrtc.SurfaceViewRenderer
+import java.net.Inet4Address
+import java.net.NetworkInterface
 import java.security.SecureRandom
+import java.util.Collections
 
 class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
     private lateinit var renderer: SurfaceViewRenderer
     private lateinit var overlay: LinearLayout
-    private lateinit var codeView: TextView
     private lateinit var statusView: TextView
     private lateinit var houseAdBanner: HouseAdBanner
     private lateinit var adAdminServer: HouseAdAdminServer
     private lateinit var signalServer: LocalSignalServer
     private lateinit var serviceAdvertiser: ReceiverServiceAdvertiser
+    private lateinit var udpDiscoveryResponder: UdpDiscoveryResponder
     private lateinit var receiver: WebRtcReceiver
     private var proSession = false
     private val roomCode = SecureRandom().nextInt(1_000_000).toString().padStart(6, '0')
@@ -30,7 +39,6 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
 
         renderer = SurfaceViewRenderer(this)
-        codeView = textView(72f, roomCode)
         statusView = textView(22f, "Oczekiwanie na iPhone'a")
         val adRepository = HouseAdRepository(this)
         houseAdBanner = HouseAdBanner(this, adRepository)
@@ -40,8 +48,18 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
             setPadding(48, 48, 48, 48)
             setBackgroundColor(0xDD07111F.toInt())
             addView(textView(28f, "MiBox Screen"))
-            addView(textView(20f, "Wpisz ten kod na iPhonie"))
-            addView(codeView)
+            addView(textView(20f, "Zeskanuj kod QR aplikacją MiBox Screen na iPhonie"))
+            createConnectionQR()?.let { bitmap ->
+                addView(ImageView(this@MainActivity).apply {
+                    setImageBitmap(bitmap)
+                    contentDescription = "Kod QR połączenia z MiBox Screen"
+                    adjustViewBounds = true
+                }, LinearLayout.LayoutParams(420, 420).apply {
+                    gravity = Gravity.CENTER_HORIZONTAL
+                    setMargins(0, 20, 0, 20)
+                })
+            } ?: addView(textView(18f, "Brak adresu sieci. Sprawdź połączenie Wi-Fi."))
+            addView(textView(18f, "Bez aparatu? Wpisz w iPhonie kod: $roomCode"))
             addView(statusView)
             addView(textView(16f, "Panel reklam: ${HouseAdAdminServer.panelUrl()}\nLogin: admin   Kod: ${adRepository.adminPin}"))
         }
@@ -62,6 +80,8 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         runCatching { adAdminServer.start() }
         serviceAdvertiser = ReceiverServiceAdvertiser(this, SIGNAL_PORT, roomCode)
         serviceAdvertiser.start()
+        udpDiscoveryResponder = UdpDiscoveryResponder(SIGNAL_PORT, roomCode)
+        udpDiscoveryResponder.start()
     }
 
     private fun textView(size: Float, value: String) = TextView(this).apply {
@@ -71,6 +91,34 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         gravity = Gravity.CENTER
         setPadding(8, 12, 8, 12)
     }
+
+    private fun createConnectionQR(): Bitmap? {
+        val host = localIPv4Address() ?: return null
+        val payload = "miboxscreen://connect?host=$host&port=$SIGNAL_PORT&room=$roomCode"
+        val matrix = QRCodeWriter().encode(
+            payload,
+            BarcodeFormat.QR_CODE,
+            420,
+            420,
+            mapOf(EncodeHintType.MARGIN to 1)
+        )
+        return Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.RGB_565).apply {
+            for (y in 0 until matrix.height) {
+                for (x in 0 until matrix.width) {
+                    setPixel(x, y, if (matrix[x, y]) Color.BLACK else Color.WHITE)
+                }
+            }
+        }
+    }
+
+    private fun localIPv4Address(): String? = runCatching {
+        Collections.list(NetworkInterface.getNetworkInterfaces())
+            .asSequence()
+            .flatMap { Collections.list(it.inetAddresses).asSequence() }
+            .filterIsInstance<Inet4Address>()
+            .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }
+            ?.hostAddress
+    }.getOrNull()
 
     override fun onSenderJoined(isPro: Boolean) = runOnUiThread {
         proSession = isPro
@@ -96,6 +144,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         houseAdBanner.stop()
         adAdminServer.stop()
         serviceAdvertiser.stop()
+        udpDiscoveryResponder.stop()
         runCatching { signalServer.stop(1_000) }
         receiver.release()
         super.onDestroy()

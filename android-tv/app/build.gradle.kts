@@ -29,4 +29,5 @@ dependencies {
     implementation("org.java-websocket:Java-WebSocket:1.6.0")
     implementation("org.nanohttpd:nanohttpd:2.3.1")
     implementation("io.github.webrtc-sdk:android:150.7871.01")
+    implementation("com.google.zxing:core:3.5.3")
 }
