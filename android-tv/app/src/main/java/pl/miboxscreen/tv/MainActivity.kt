@@ -21,6 +21,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
     private lateinit var signalServer: LocalSignalServer
     private lateinit var serviceAdvertiser: ReceiverServiceAdvertiser
     private lateinit var receiver: WebRtcReceiver
+    private var proSession = false
     private val roomCode = SecureRandom().nextInt(1_000_000).toString().padStart(6, '0')
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,10 +72,16 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         setPadding(8, 12, 8, 12)
     }
 
-    override fun onSenderJoined() = runOnUiThread { updateStatus("iPhone połączony — uruchamianie transmisji") }
+    override fun onSenderJoined(isPro: Boolean) = runOnUiThread {
+        proSession = isPro
+        updateStatus("iPhone połączony — uruchamianie transmisji")
+    }
+
     override fun onSenderLeft() = runOnUiThread {
+        proSession = false
         receiver.handle(JSONObject().put("type", "peer-left"))
     }
+
     override fun onSignal(message: JSONObject) = runOnUiThread { receiver.handle(message) }
     override fun onServerError(message: String) = runOnUiThread { updateStatus("Błąd: $message") }
 
@@ -82,7 +89,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         statusView.text = value
         val connected = value.equals("Connected", ignoreCase = true)
         overlay.visibility = if (connected) View.GONE else View.VISIBLE
-        if (connected) houseAdBanner.start() else houseAdBanner.stop()
+        if (connected && !proSession) houseAdBanner.start() else houseAdBanner.stop()
     }
 
     override fun onDestroy() {

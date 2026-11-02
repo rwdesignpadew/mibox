@@ -4,6 +4,7 @@ enum SharedSettings {
     static let appGroup = "group.pl.miboxscreen.ios"
     static let serverURLKey = "serverURL"
     static let roomCodeKey = "roomCode"
+    static let proKey = "isPro"
 
     static var defaults: UserDefaults {
         guard let defaults = UserDefaults(suiteName: appGroup) else {
@@ -12,4 +13,3 @@ enum SharedSettings {
         return defaults
     }
 }
-

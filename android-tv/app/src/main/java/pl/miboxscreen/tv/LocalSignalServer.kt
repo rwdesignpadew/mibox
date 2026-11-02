@@ -12,7 +12,7 @@ class LocalSignalServer(
     private val listener: Listener
 ) : WebSocketServer(InetSocketAddress(port)) {
     interface Listener {
-        fun onSenderJoined()
+        fun onSenderJoined(isPro: Boolean)
         fun onSenderLeft()
         fun onSignal(message: JSONObject)
         fun onServerError(message: String)
@@ -68,7 +68,7 @@ class LocalSignalServer(
             put("peerPresent", true)
         })
         send(connection, JSONObject().put("type", "peer-joined").put("role", "receiver"))
-        listener.onSenderJoined()
+        listener.onSenderJoined(message.optBoolean("isPro", false))
     }
 
     fun sendSignal(message: JSONObject) {
@@ -96,4 +96,3 @@ class LocalSignalServer(
         connectionLostTimeout = 20
     }
 }
-

@@ -19,7 +19,12 @@ final class SampleHandler: RPBroadcastSampleHandler {
         sender.onSignal = { [weak socket] message in socket?.send(message) }
         sender.onError = { [weak self] message in self?.finishBroadcastWithError(message: message) }
         socket.onOpen = { [weak socket] in
-            socket?.send(["type": "join", "role": "sender", "roomCode": roomCode])
+            socket?.send([
+                "type": "join",
+                "role": "sender",
+                "roomCode": roomCode,
+                "isPro": defaults.bool(forKey: SharedSettings.proKey)
+            ])
         }
         socket.onMessage = { [weak sender] message in
             let type = message["type"] as? String
