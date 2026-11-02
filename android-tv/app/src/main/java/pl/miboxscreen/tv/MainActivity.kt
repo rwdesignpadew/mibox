@@ -16,6 +16,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
     private lateinit var overlay: LinearLayout
     private lateinit var codeView: TextView
     private lateinit var statusView: TextView
+    private lateinit var houseAdBanner: HouseAdBanner
     private lateinit var signalServer: LocalSignalServer
     private lateinit var serviceAdvertiser: ReceiverServiceAdvertiser
     private lateinit var receiver: WebRtcReceiver
@@ -29,6 +30,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         renderer = SurfaceViewRenderer(this)
         codeView = textView(72f, roomCode)
         statusView = textView(22f, "Oczekiwanie na iPhone'a")
+        houseAdBanner = HouseAdBanner(this)
         overlay = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -42,6 +44,9 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         setContentView(FrameLayout(this).apply {
             addView(renderer, FrameLayout.LayoutParams(-1, -1))
             addView(this@MainActivity.overlay, FrameLayout.LayoutParams(-1, -1))
+            addView(houseAdBanner, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+                setMargins(48, 48, 48, 48)
+            })
         })
 
         signalServer = LocalSignalServer(SIGNAL_PORT, roomCode, this)
@@ -70,10 +75,13 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
 
     private fun updateStatus(value: String) {
         statusView.text = value
-        overlay.visibility = if (value.equals("Connected", ignoreCase = true)) View.GONE else View.VISIBLE
+        val connected = value.equals("Connected", ignoreCase = true)
+        overlay.visibility = if (connected) View.GONE else View.VISIBLE
+        if (connected) houseAdBanner.start() else houseAdBanner.stop()
     }
 
     override fun onDestroy() {
+        houseAdBanner.stop()
         serviceAdvertiser.stop()
         runCatching { signalServer.stop(1_000) }
         receiver.release()

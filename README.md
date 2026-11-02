@@ -64,6 +64,19 @@ cd signaling
 npm test
 ```
 
+## Własny baner marki
+
+Wersja bezpłatna pokazuje podczas aktywnej transmisji dyskretny baner u dołu telewizora: przez 8 sekund co 20 minut. Baner nie zatrzymuje ani nie zasłania całego obrazu. Nazwę marki, hasło i częstotliwość można zmienić w `android-tv/app/src/main/java/pl/miboxscreen/tv/HouseAdConfig.kt`.
+
+Domyślna konfiguracja:
+
+- marka: `RW DESIGN`,
+- hasło: `Projektowanie stron i aplikacji`,
+- czas wyświetlania: 8 sekund,
+- odstęp: 20 minut.
+
+Wyłączenie reklam po zakupie Pro będzie realizowane przez StoreKit i stan uprawnienia użytkownika w kolejnym etapie.
+
 ## Zakres MVP
 
 Obraz działa bezpośrednio w sieci lokalnej, a serwer sygnalizacyjny działa na odbiorniku Android TV. W tej wersji przesyłany jest obraz bez dźwięku. Sieci gościnne z izolacją klientów mogą blokować automatyczne wykrywanie i połączenie między urządzeniami.
