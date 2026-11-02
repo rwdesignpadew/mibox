@@ -30,6 +30,7 @@
     <array>
         <string>_googlecast._tcp</string>
         <string>_CC1AD845._googlecast._tcp</string>
+        <string>_androidtvremote2._tcp</string>
     </array>
     <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/><key>NSAllowsArbitraryLoads</key><true/></dict>
 </dict></plist>

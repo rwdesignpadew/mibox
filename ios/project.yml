@@ -7,6 +7,9 @@ packages:
   GoogleCast:
     url: https://github.com/googlecast/google-cast-ios-sdk.git
     from: 4.8.6
+  AndroidTVRemoteControl:
+    url: https://github.com/odyshewroman/AndroidTVRemoteControl.git
+    from: 2.4.16
 settings:
   base:
     SWIFT_VERSION: 5.10
@@ -36,6 +39,8 @@ targets:
       - target: ScreenBroadcast
       - package: GoogleCast
         product: GoogleCastDynamic
+      - package: AndroidTVRemoteControl
+        product: AndroidTVRemoteControl
     postCompileScripts: []
   ScreenBroadcast:
     type: app-extension

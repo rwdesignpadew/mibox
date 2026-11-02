@@ -5,48 +5,52 @@ struct ContentView: View {
     @StateObject private var cast = CastManager()
     @StateObject private var purchases = PurchaseManager()
     @State private var showsPro = ProcessInfo.processInfo.arguments.contains("--show-pro")
+    @State private var mode = 0
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 22) {
-                Text("Udostępnij ekran iPhone’a na Mi Box")
+                Text(mode == 0 ? "Udostępnij ekran na Mi Box" : "Pilot do Mi Boxa")
                     .font(.largeTitle.bold())
 
-                HStack(spacing: 14) {
-                    CastButton()
-                        .frame(width: 44, height: 44)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(cast.deviceName ?? "Wybierz Mi Box")
-                            .font(.headline)
-                        Text(cast.isConnected ? "Połączono przez Google Cast" : "Naciśnij ikonę Cast i wybierz telewizor")
-                            .font(.footnote)
-                            .foregroundStyle(cast.isConnected ? Color.green : Color.secondary)
-                    }
-                    Spacer()
+                Picker("Tryb", selection: $mode) {
+                    Label("Ekran", systemImage: "rectangle.on.rectangle").tag(0)
+                    Label("Pilot", systemImage: "av.remote.fill").tag(1)
                 }
-                .padding()
-                .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
+                .pickerStyle(.segmented)
 
-                if cast.isConnected {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("2. Rozpocznij udostępnianie")
-                            .font(.headline)
-                        BroadcastButton()
-                            .frame(height: 54)
-                        Text("W oknie systemowym wybierz „MiBox Screen”, a następnie „Rozpocznij transmisję”. Obraz pojawi się na wybranym Mi Boxie.")
-                            .font(.footnote)
+                if mode == 1 {
+                    MiBoxRemoteView()
+                } else {
+                    HStack(spacing: 14) {
+                        CastButton().frame(width: 44, height: 44)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(cast.deviceName ?? "Wybierz Mi Box").font(.headline)
+                            Text(cast.isConnected ? "Połączono przez Google Cast" : "Naciśnij ikonę Cast i wybierz telewizor")
+                                .font(.footnote)
+                                .foregroundStyle(cast.isConnected ? Color.green : Color.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
+
+                    if cast.isConnected {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("2. Rozpocznij udostępnianie").font(.headline)
+                            BroadcastButton().frame(height: 54)
+                            Text("W oknie systemowym wybierz „MiBox Screen”, a następnie „Rozpocznij transmisję”.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Label("Nic nie instalujesz na Mi Boxie — używany jest wbudowany Chromecast.", systemImage: "tv.and.hifispeaker.fill")
                             .foregroundStyle(.secondary)
                     }
-                } else {
-                    Label("Nie instalujesz niczego na Mi Boxie. Używany jest wbudowany Chromecast.", systemImage: "tv.and.hifispeaker.fill")
-                        .foregroundStyle(.secondary)
+
+                    Spacer()
+                    Text("iPhone i Mi Box muszą być w tej samej sieci Wi‑Fi.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
-
-                Spacer()
-
-                Text("iPhone i Mi Box muszą być w tej samej sieci Wi‑Fi. Transmisję zatrzymasz z czerwonego wskaźnika u góry ekranu.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
             .padding(24)
             .navigationTitle("MiBox Screen")
