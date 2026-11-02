@@ -1,6 +1,7 @@
 package pl.miboxscreen.tv
 
 import fi.iki.elonen.NanoHTTPD
+import org.json.JSONObject
 import java.net.NetworkInterface
 import android.util.Base64
 
@@ -10,6 +11,23 @@ class HouseAdAdminServer(
 ) : NanoHTTPD(port) {
 
     override fun serve(session: IHTTPSession): Response {
+        if (session.method == Method.GET && session.uri == "/api/ads/next") {
+            val ad = repository.next()
+            val body = if (ad == null) {
+                JSONObject().put("available", false)
+            } else {
+                JSONObject()
+                    .put("available", true)
+                    .put("id", ad.id)
+                    .put("brand", ad.brand)
+                    .put("message", ad.message)
+            }
+            return newFixedLengthResponse(
+                Response.Status.OK,
+                "application/json; charset=utf-8",
+                body.toString()
+            )
+        }
         if (!authorized(session)) return unauthorized()
         if (session.method == Method.POST) {
             runCatching { session.parseBody(HashMap()) }
