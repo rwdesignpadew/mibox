@@ -29,6 +29,7 @@ targets:
       configs:
         Release:
           CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
           DEVELOPMENT_TEAM: PY32XNF74N
           PROVISIONING_PROFILE_SPECIFIER: MiBox Screen App Store
     dependencies:
@@ -49,6 +50,7 @@ targets:
       configs:
         Release:
           CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
           DEVELOPMENT_TEAM: PY32XNF74N
           PROVISIONING_PROFILE_SPECIFIER: MiBox Screen Broadcast App Store
     dependencies:
