@@ -30,7 +30,11 @@ final class WebRTCSender: NSObject {
     private func createPeer() {
         let config = RTCConfiguration()
         config.sdpSemantics = .unifiedPlan
-        config.iceServers = [RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302"])]
+        config.iceServers = [RTCIceServer(
+            urlStrings: ["stun:stun.l.google.com:19302"],
+            username: "",
+            credential: ""
+        )]
         let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
         peer = factory.peerConnection(with: config, constraints: constraints, delegate: self)
         let track = factory.videoTrack(with: videoSource, trackId: "screen-video")
