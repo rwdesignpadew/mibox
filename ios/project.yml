@@ -4,9 +4,9 @@ options:
   deploymentTarget:
     iOS: "16.0"
 packages:
-  WebRTC:
-    url: https://github.com/stasel/WebRTC.git
-    branch: latest
+  GoogleCast:
+    url: https://github.com/googlecast/google-cast-ios-sdk.git
+    from: 4.8.6
 settings:
   base:
     SWIFT_VERSION: 5.10
@@ -34,6 +34,8 @@ targets:
           PROVISIONING_PROFILE_SPECIFIER: MiBox Screen App Store
     dependencies:
       - target: ScreenBroadcast
+      - package: GoogleCast
+        product: GoogleCastDynamic
     postCompileScripts: []
   ScreenBroadcast:
     type: app-extension
@@ -53,6 +55,3 @@ targets:
           CODE_SIGN_IDENTITY: Apple Distribution
           DEVELOPMENT_TEAM: PY32XNF74N
           PROVISIONING_PROFILE_SPECIFIER: MiBox Screen Broadcast App Store
-    dependencies:
-      - package: WebRTC
-        product: WebRTC

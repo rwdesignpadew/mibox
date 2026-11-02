@@ -25,9 +25,11 @@
         <string>UIInterfaceOrientationLandscapeLeft</string>
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
-    <key>NSLocalNetworkUsageDescription</key><string>Połączenie z Mi Boxem w tej samej sieci Wi-Fi.</string>
-    <key>NSCameraUsageDescription</key><string>Aparat służy do zeskanowania kodu QR wyświetlonego na telewizorze.</string>
+    <key>NSLocalNetworkUsageDescription</key><string>Wykrywanie Mi Boxa i przesyłanie ekranu przez Google Cast w tej samej sieci Wi-Fi.</string>
     <key>NSBonjourServices</key>
-    <array><string>_miboxscreen._tcp</string></array>
+    <array>
+        <string>_googlecast._tcp</string>
+        <string>_CC1AD845._googlecast._tcp</string>
+    </array>
     <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/><key>NSAllowsArbitraryLoads</key><true/></dict>
 </dict></plist>

@@ -6,6 +6,7 @@ enum SharedSettings {
     static let roomCodeKey = "roomCode"
     static let proKey = "isPro"
     static let remoteLastAdDateKey = "remoteLastAdDate"
+    static let streamURLKey = "castStreamURL"
 
     static var defaults: UserDefaults {
         guard let defaults = UserDefaults(suiteName: appGroup) else {
