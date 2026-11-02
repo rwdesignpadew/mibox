@@ -4,6 +4,7 @@
     <key>CFBundleDisplayName</key><string>MiBox Screen</string>
     <key>UILaunchScreen</key><dict/>
     <key>NSLocalNetworkUsageDescription</key><string>Połączenie z Mi Boxem w tej samej sieci Wi‑Fi.</string>
+    <key>NSBonjourServices</key>
+    <array><string>_miboxscreen._tcp</string></array>
     <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/><key>NSAllowsArbitraryLoads</key><true/></dict>
 </dict></plist>
-

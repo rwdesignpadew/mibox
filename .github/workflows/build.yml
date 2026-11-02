@@ -18,7 +18,7 @@ jobs:
           cache: gradle
       - name: Build Android TV APK
         working-directory: android-tv
-        run: ./gradlew assembleDebug -PSIGNALING_URL=ws://192.168.1.10:8080/signal
+        run: ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: MiBoxScreen-TV-debug

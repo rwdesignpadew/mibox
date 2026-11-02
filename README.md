@@ -2,9 +2,9 @@
 
 MVP do udostępniania całego ekranu iPhone'a na Mi Boxie przez WebRTC. Projekt składa się z:
 
-- `signaling/` — mały serwer WebSocket uruchamiany na komputerze lub serwerze w sieci,
-- `android-tv/` — odbiornik instalowany na Mi Boxie,
+- `android-tv/` — odbiornik instalowany na Mi Boxie, zawierający lokalny serwer sygnalizacyjny,
 - `ios/` — aplikacja i rozszerzenie systemowe ReplayKit do transmisji ekranu.
+- `signaling/` — opcjonalny serwer referencyjny używany tylko do testów i dalszego rozwoju.
 
 > iOS zawsze wyświetla systemowe potwierdzenie rozpoczęcia transmisji. Aplikacja nie może ominąć tego kroku.
 
@@ -13,44 +13,21 @@ MVP do udostępniania całego ekranu iPhone'a na Mi Boxie przez WebRTC. Projekt 
 - Mi Box z Android TV 6.0 lub nowszym,
 - iPhone z iOS 16 lub nowszym,
 - macOS z Xcode 16+ do zbudowania aplikacji iOS,
-- Android Studio z JDK 17 do zbudowania aplikacji TV,
-- Node.js 20+ dla serwera.
+- Android Studio z JDK 17 do zbudowania aplikacji TV.
 
-## 1. Serwer sygnalizacyjny
+Komputer ani zewnętrzny serwer nie są potrzebne podczas korzystania z aplikacji. iPhone i telewizor muszą być połączone z tą samą siecią Wi‑Fi, która nie blokuje komunikacji między urządzeniami.
 
-Na komputerze dostępnym dla obu urządzeń:
-
-```powershell
-cd signaling
-npm install
-npm start
-```
-
-Zapora systemowa musi zezwalać na połączenia przychodzące TCP na porcie `8080`. Stan serwera można sprawdzić pod `http://ADRES_IP:8080/health`.
-
-Adres IP komputera w Windows można znaleźć poleceniem:
-
-```powershell
-ipconfig
-```
-
-## 2. Odbiornik na Mi Box
+## 1. Odbiornik na Mi Box
 
 1. Otwórz katalog `android-tv` w Android Studio.
-2. W pliku użytkownika `~/.gradle/gradle.properties` ustaw adres serwera:
-
-   ```properties
-   SIGNALING_URL=ws://192.168.1.10:8080/signal
-   ```
-
-3. Zbuduj APK (`Build > Build APK`) i zainstaluj je na Mi Boxie przez ADB lub Android Studio.
-4. Uruchom **MiBox Screen**. Telewizor pokaże 6-cyfrowy kod.
+2. Zbuduj APK (`Build > Build APK`) i zainstaluj je na Mi Boxie przez ADB lub Android Studio.
+3. Uruchom **MiBox Screen**. Telewizor uruchomi lokalny odbiornik i pokaże 6-cyfrowy kod.
 
 Build można też wykonać bez Android Studio, używając dołączonego Gradle Wrappera:
 
 ```powershell
 cd android-tv
-.\gradlew.bat assembleDebug -PSIGNALING_URL=ws://ADRES_IP:8080/signal
+.\gradlew.bat assembleDebug
 ```
 
 Gotowy plik znajdzie się w `android-tv/app/build/outputs/apk/debug/app-debug.apk`.
@@ -62,7 +39,7 @@ adb connect ADRES_IP_MIBOXA:5555
 adb install -r android-tv\app\build\outputs\apk\debug\app-debug.apk
 ```
 
-## 3. Aplikacja iOS
+## 2. Aplikacja iOS
 
 Na Macu zainstaluj XcodeGen (`brew install xcodegen`), a następnie:
 
@@ -77,7 +54,7 @@ W Xcode:
 1. Ustaw swój zespół podpisujący dla targetów `MiBoxScreen` i `ScreenBroadcast`.
 2. Zmień identyfikatory pakietów oraz App Group `group.pl.miboxscreen.ios`, jeżeli ten identyfikator jest już zajęty. Zmiana musi być taka sama w obu plikach `.entitlements` oraz w `SharedSettings.swift`.
 3. Uruchom aplikację na fizycznym iPhonie (ReplayKit nie jest miarodajny w symulatorze).
-4. Wpisz `ws://ADRES_IP:8080/signal` i kod z telewizora.
+4. Poczekaj, aż aplikacja automatycznie znajdzie odbiornik w lokalnej sieci, i wpisz kod z telewizora. Ręczne podanie adresu pozostaje dostępne jako opcja awaryjna.
 5. Naciśnij **Rozpocznij udostępnianie**, wybierz **MiBox Screen** i potwierdź transmisję.
 
 ## Testy
@@ -89,4 +66,4 @@ npm test
 
 ## Zakres MVP
 
-Obraz działa peer-to-peer; serwer przekazuje wyłącznie komunikaty zestawiające połączenie. W tej wersji przesyłany jest obraz bez dźwięku. Publiczne wdrożenie powinno używać `wss://`, uwierzytelniania, własnego serwera TURN oraz rotacji/wygaśnięcia kodów pokojów.
+Obraz działa bezpośrednio w sieci lokalnej, a serwer sygnalizacyjny działa na odbiorniku Android TV. W tej wersji przesyłany jest obraz bez dźwięku. Sieci gościnne z izolacją klientów mogą blokować automatyczne wykrywanie i połączenie między urządzeniami.

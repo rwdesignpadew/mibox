@@ -9,14 +9,17 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import org.json.JSONObject
 import org.webrtc.SurfaceViewRenderer
+import java.security.SecureRandom
 
-class MainActivity : AppCompatActivity(), SignalClient.Listener {
+class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
     private lateinit var renderer: SurfaceViewRenderer
     private lateinit var overlay: LinearLayout
     private lateinit var codeView: TextView
     private lateinit var statusView: TextView
-    private lateinit var signalClient: SignalClient
+    private lateinit var signalServer: LocalSignalServer
+    private lateinit var serviceAdvertiser: ReceiverServiceAdvertiser
     private lateinit var receiver: WebRtcReceiver
+    private val roomCode = SecureRandom().nextInt(1_000_000).toString().padStart(6, '0')
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,8 +27,8 @@ class MainActivity : AppCompatActivity(), SignalClient.Listener {
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
 
         renderer = SurfaceViewRenderer(this)
-        codeView = textView(72f, "------")
-        statusView = textView(22f, "Łączenie z serwerem…")
+        codeView = textView(72f, roomCode)
+        statusView = textView(22f, "Oczekiwanie na iPhone'a")
         overlay = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -41,11 +44,13 @@ class MainActivity : AppCompatActivity(), SignalClient.Listener {
             addView(this@MainActivity.overlay, FrameLayout.LayoutParams(-1, -1))
         })
 
-        signalClient = SignalClient(BuildConfig.SIGNALING_URL, this)
-        receiver = WebRtcReceiver(this, renderer, signalClient::send) {
+        signalServer = LocalSignalServer(SIGNAL_PORT, roomCode, this)
+        receiver = WebRtcReceiver(this, renderer, signalServer::sendSignal) {
             status -> runOnUiThread { updateStatus(status) }
         }
-        signalClient.connect()
+        signalServer.start()
+        serviceAdvertiser = ReceiverServiceAdvertiser(this, SIGNAL_PORT, roomCode)
+        serviceAdvertiser.start()
     }
 
     private fun textView(size: Float, value: String) = TextView(this).apply {
@@ -56,24 +61,12 @@ class MainActivity : AppCompatActivity(), SignalClient.Listener {
         setPadding(8, 12, 8, 12)
     }
 
-    override fun onConnected() = runOnUiThread {
-        updateStatus("Pobieranie kodu…")
-        signalClient.send(JSONObject().put("type", "join").put("role", "receiver"))
+    override fun onSenderJoined() = runOnUiThread { updateStatus("iPhone połączony — uruchamianie transmisji") }
+    override fun onSenderLeft() = runOnUiThread {
+        receiver.handle(JSONObject().put("type", "peer-left"))
     }
-
-    override fun onMessage(message: JSONObject) = runOnUiThread {
-        when (message.optString("type")) {
-            "joined" -> {
-                codeView.text = message.getString("roomCode")
-                updateStatus("Oczekiwanie na iPhone'a")
-            }
-            "peer-joined" -> updateStatus("iPhone połączony — uruchom transmisję")
-            "error" -> updateStatus(message.optString("message", "Błąd serwera"))
-            else -> receiver.handle(message)
-        }
-    }
-
-    override fun onDisconnected(reason: String) = runOnUiThread { updateStatus("Rozłączono: $reason") }
+    override fun onSignal(message: JSONObject) = runOnUiThread { receiver.handle(message) }
+    override fun onServerError(message: String) = runOnUiThread { updateStatus("Błąd: $message") }
 
     private fun updateStatus(value: String) {
         statusView.text = value
@@ -81,8 +74,13 @@ class MainActivity : AppCompatActivity(), SignalClient.Listener {
     }
 
     override fun onDestroy() {
-        signalClient.close()
+        serviceAdvertiser.stop()
+        runCatching { signalServer.stop(1_000) }
         receiver.release()
         super.onDestroy()
+    }
+
+    companion object {
+        private const val SIGNAL_PORT = 8080
     }
 }

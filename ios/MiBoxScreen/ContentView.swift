@@ -3,9 +3,10 @@ import SwiftUI
 
 struct ContentView: View {
     @AppStorage(SharedSettings.serverURLKey, store: SharedSettings.defaults)
-    private var serverURL = "ws://192.168.1.10:8080/signal"
+    private var serverURL = ""
     @AppStorage(SharedSettings.roomCodeKey, store: SharedSettings.defaults)
     private var roomCode = ""
+    @StateObject private var discovery = ReceiverDiscovery()
 
     var body: some View {
         NavigationStack {
@@ -13,10 +14,22 @@ struct ContentView: View {
                 Text("Udostępnij ekran iPhone’a na Mi Box")
                     .font(.largeTitle.bold())
 
-                TextField("Adres serwera, np. ws://192.168.1.10:8080/signal", text: $serverURL)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
-                    .textFieldStyle(.roundedBorder)
+                HStack(spacing: 14) {
+                    Circle()
+                        .fill(discovery.serverURL == nil ? Color.orange : Color.green)
+                        .frame(width: 12, height: 12)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(discovery.receiverName ?? "Szukam Mi Boxa / Android TV")
+                            .font(.headline)
+                        Text(discovery.status)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Szukaj") { discovery.restart() }
+                }
+                .padding()
+                .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
 
                 TextField("6-cyfrowy kod z telewizora", text: $roomCode)
                     .keyboardType(.numberPad)
@@ -25,7 +38,7 @@ struct ContentView: View {
                         roomCode = String(value.filter(\.isNumber).prefix(6))
                     }
 
-                if roomCode.count == 6, URL(string: serverURL) != nil {
+                if roomCode.count == 6, validServerURL {
                     VStack(spacing: 10) {
                         BroadcastButton()
                             .frame(height: 54)
@@ -34,18 +47,37 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Text("Wpisz poprawny adres serwera i kod widoczny na telewizorze.")
+                    Text("Uruchom odbiornik na telewizorze i wpisz wyświetlony kod.")
                         .foregroundStyle(.secondary)
                 }
 
+                DisclosureGroup("Połączenie ręczne") {
+                    TextField("ws://adres-telewizora:8080/signal", text: $serverURL)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                        .textFieldStyle(.roundedBorder)
+                        .padding(.top, 8)
+                }
+                .font(.footnote)
+
                 Spacer()
-                Text("iPhone i Mi Box muszą mieć dostęp do tego samego serwera. Transmisję można zatrzymać z czerwonego wskaźnika u góry ekranu.")
+                Text("iPhone i telewizor muszą być w tej samej sieci Wi‑Fi. Transmisję można zatrzymać z czerwonego wskaźnika u góry ekranu.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             .padding(24)
             .navigationTitle("MiBox Screen")
+            .onAppear { discovery.start() }
+            .onDisappear { discovery.stop() }
+            .onChange(of: discovery.serverURL) { value in
+                if let value { serverURL = value }
+            }
         }
+    }
+
+    private var validServerURL: Bool {
+        guard let url = URL(string: serverURL), let scheme = url.scheme else { return false }
+        return (scheme == "ws" || scheme == "wss") && url.host != nil
     }
 }
 
