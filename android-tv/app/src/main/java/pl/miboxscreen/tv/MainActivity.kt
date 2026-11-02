@@ -17,6 +17,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
     private lateinit var codeView: TextView
     private lateinit var statusView: TextView
     private lateinit var houseAdBanner: HouseAdBanner
+    private lateinit var adAdminServer: HouseAdAdminServer
     private lateinit var signalServer: LocalSignalServer
     private lateinit var serviceAdvertiser: ReceiverServiceAdvertiser
     private lateinit var receiver: WebRtcReceiver
@@ -30,7 +31,8 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         renderer = SurfaceViewRenderer(this)
         codeView = textView(72f, roomCode)
         statusView = textView(22f, "Oczekiwanie na iPhone'a")
-        houseAdBanner = HouseAdBanner(this)
+        val adRepository = HouseAdRepository(this)
+        houseAdBanner = HouseAdBanner(this, adRepository)
         overlay = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -40,6 +42,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
             addView(textView(20f, "Wpisz ten kod na iPhonie"))
             addView(codeView)
             addView(statusView)
+            addView(textView(16f, "Panel reklam: ${HouseAdAdminServer.panelUrl()}\nLogin: admin   Kod: ${adRepository.adminPin}"))
         }
         setContentView(FrameLayout(this).apply {
             addView(renderer, FrameLayout.LayoutParams(-1, -1))
@@ -54,6 +57,8 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
             status -> runOnUiThread { updateStatus(status) }
         }
         signalServer.start()
+        adAdminServer = HouseAdAdminServer(adRepository)
+        runCatching { adAdminServer.start() }
         serviceAdvertiser = ReceiverServiceAdvertiser(this, SIGNAL_PORT, roomCode)
         serviceAdvertiser.start()
     }
@@ -82,6 +87,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
 
     override fun onDestroy() {
         houseAdBanner.stop()
+        adAdminServer.stop()
         serviceAdvertiser.stop()
         runCatching { signalServer.stop(1_000) }
         receiver.release()

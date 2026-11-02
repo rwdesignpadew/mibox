@@ -11,9 +11,11 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 
-class HouseAdBanner(context: Context) : LinearLayout(context) {
+class HouseAdBanner(context: Context, private val repository: HouseAdRepository) : LinearLayout(context) {
     private val handler = Handler(Looper.getMainLooper())
     private var running = false
+    private val brandView = label("", 18f, Typeface.BOLD, Color.rgb(112, 225, 200))
+    private val messageView = label("", 16f, Typeface.NORMAL, Color.WHITE)
 
     private val hideRunnable = Runnable { hideAnimated() }
     private val showRunnable = object : Runnable {
@@ -32,7 +34,6 @@ class HouseAdBanner(context: Context) : LinearLayout(context) {
         elevation = dp(12).toFloat()
         visibility = View.GONE
         alpha = 0f
-        contentDescription = "Reklama marki ${HouseAdConfig.BRAND}: ${HouseAdConfig.MESSAGE}"
         background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = dp(18).toFloat()
@@ -40,8 +41,8 @@ class HouseAdBanner(context: Context) : LinearLayout(context) {
             setStroke(dp(1), Color.rgb(112, 225, 200))
         }
 
-        addView(label(HouseAdConfig.BRAND, 18f, Typeface.BOLD, Color.rgb(112, 225, 200)))
-        addView(label("  •  ${HouseAdConfig.MESSAGE}", 16f, Typeface.NORMAL, Color.WHITE))
+        addView(brandView)
+        addView(messageView)
     }
 
     fun start() {
@@ -60,6 +61,10 @@ class HouseAdBanner(context: Context) : LinearLayout(context) {
     }
 
     private fun showAnimated() {
+        val ad = repository.next() ?: return
+        brandView.text = ad.brand
+        messageView.text = "  |  ${ad.message}"
+        contentDescription = "Reklama marki ${ad.brand}: ${ad.message}"
         visibility = View.VISIBLE
         animate().cancel()
         animate().alpha(1f).setDuration(300).start()
@@ -80,4 +85,3 @@ class HouseAdBanner(context: Context) : LinearLayout(context) {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }
-

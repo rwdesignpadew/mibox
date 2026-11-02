@@ -64,14 +64,22 @@ cd signaling
 npm test
 ```
 
-## Własny baner marki
+## Własne reklamy marki
 
-Wersja bezpłatna pokazuje podczas aktywnej transmisji dyskretny baner u dołu telewizora: przez 8 sekund co 20 minut. Baner nie zatrzymuje ani nie zasłania całego obrazu. Nazwę marki, hasło i częstotliwość można zmienić w `android-tv/app/src/main/java/pl/miboxscreen/tv/HouseAdConfig.kt`.
+Wersja bezpłatna pokazuje podczas aktywnej transmisji dyskretny baner u dołu telewizora: przez 8 sekund co 20 minut. Baner nie zatrzymuje ani nie zasłania całego obrazu.
+
+Na ekranie startowym Mi Boxa znajduje się adres lokalnego panelu reklam (port `8081`) oraz sześciocyfrowy kod dostępu. Otwórz ten adres w przeglądarce urządzenia podłączonego do tej samej sieci Wi‑Fi i zaloguj się:
+
+- użytkownik: `admin`,
+- hasło: kod pokazany na telewizorze.
+
+W panelu można dodawać, wyłączać, ponownie włączać i usuwać reklamy. Aktywne reklamy są tasowane: każda pojawia się raz w danej kolejce, a ta sama reklama nie występuje bezpośrednio po sobie. Lista jest zapisywana lokalnie na Mi Boxie i nie wymaga zewnętrznego serwera. Panel działa przez zwykłe HTTP wyłącznie w sieci lokalnej, dlatego należy używać go w zaufanej sieci.
+
+Częstotliwość i czas emisji można zmienić w `android-tv/app/src/main/java/pl/miboxscreen/tv/HouseAdConfig.kt`.
 
 Domyślna konfiguracja:
 
-- marka: `RW DESIGN`,
-- hasło: `Projektowanie stron i aplikacji`,
+- pierwsza reklama: `RW DESIGN — Projektowanie stron i aplikacji`,
 - czas wyświetlania: 8 sekund,
 - odstęp: 20 minut.
 
