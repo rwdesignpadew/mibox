@@ -85,6 +85,15 @@ Domyślna konfiguracja:
 
 Wyłączenie reklam po zakupie Pro będzie realizowane przez StoreKit i stan uprawnienia użytkownika w kolejnym etapie.
 
+## Logo i ikony aplikacji
+
+Źródła identyfikacji znajdują się w katalogu `branding/`:
+
+- `mibox-screen-master.png` — pełna ikona 1024×1024 px,
+- `mibox-screen-mark.png` — znak z przezroczystym tłem do ikon adaptacyjnych i banerów.
+
+iOS korzysta z pojedynczej ikony 1024×1024 px w `Assets.xcassets/AppIcon.appiconset`; Xcode generuje z niej wymagane rozmiary. Android TV zawiera ikonę standardową w pięciu gęstościach, adaptive icon dla Androida 8.0+ oraz lokalizowany baner 16:9 z nazwą aplikacji w rozmiarach od 160×90 do 640×360 px.
+
 ## Zakres MVP
 
 Obraz działa bezpośrednio w sieci lokalnej, a serwer sygnalizacyjny działa na odbiorniku Android TV. W tej wersji przesyłany jest obraz bez dźwięku. Sieci gościnne z izolacją klientów mogą blokować automatyczne wykrywanie i połączenie między urządzeniami.

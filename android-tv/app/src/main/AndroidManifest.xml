@@ -9,6 +9,7 @@
     <application
         android:allowBackup="false"
         android:banner="@drawable/tv_banner"
+        android:icon="@mipmap/ic_launcher"
         android:label="MiBox Screen"
         android:theme="@style/Theme.MiBoxScreen"
         android:usesCleartextTraffic="true">
