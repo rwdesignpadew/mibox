@@ -45,7 +45,7 @@ final class ReceiverDiscovery: NSObject, ObservableObject {
     private func startUDPDiscovery() {
         udpQueue.async { [weak self] in
             guard let self, self.isRunning else { return }
-            let descriptor = Darwin.socket(AF_INET, SOCK_DGRAM.rawValue, IPPROTO_UDP)
+            let descriptor = Darwin.socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
             guard descriptor >= 0 else { return }
             self.udpSocket = descriptor
 

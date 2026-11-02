@@ -26,6 +26,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
     private lateinit var statusView: TextView
     private lateinit var houseAdBanner: HouseAdBanner
     private lateinit var adAdminServer: HouseAdAdminServer
+    private lateinit var remoteControlServer: RemoteControlServer
     private lateinit var signalServer: LocalSignalServer
     private lateinit var serviceAdvertiser: ReceiverServiceAdvertiser
     private lateinit var udpDiscoveryResponder: UdpDiscoveryResponder
@@ -60,6 +61,9 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
                 })
             } ?: addView(textView(18f, "Brak adresu sieci. Sprawdź połączenie Wi-Fi."))
             addView(textView(18f, "Bez aparatu? Wpisz w iPhonie kod: $roomCode"))
+            if (!RemoteAccessibilityService.isEnabled()) {
+                addView(textView(15f, "Pilot: włącz „MiBox Screen Remote” w Ustawienia > Dostępność"))
+            }
             addView(statusView)
             addView(textView(16f, "Panel reklam: ${HouseAdAdminServer.panelUrl()}\nLogin: admin   Kod: ${adRepository.adminPin}"))
         }
@@ -78,6 +82,8 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         signalServer.start()
         adAdminServer = HouseAdAdminServer(adRepository)
         runCatching { adAdminServer.start() }
+        remoteControlServer = RemoteControlServer(roomCode)
+        runCatching { remoteControlServer.start() }
         serviceAdvertiser = ReceiverServiceAdvertiser(this, SIGNAL_PORT, roomCode)
         serviceAdvertiser.start()
         udpDiscoveryResponder = UdpDiscoveryResponder(SIGNAL_PORT, roomCode)
@@ -143,6 +149,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
     override fun onDestroy() {
         houseAdBanner.stop()
         adAdminServer.stop()
+        remoteControlServer.stop()
         serviceAdvertiser.stop()
         udpDiscoveryResponder.stop()
         runCatching { signalServer.stop(1_000) }

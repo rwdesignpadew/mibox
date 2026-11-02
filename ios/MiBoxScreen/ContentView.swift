@@ -62,6 +62,15 @@ struct ContentView: View {
 
                 if roomCode.count == 6, validServerURL {
                     VStack(spacing: 10) {
+                        NavigationLink {
+                            RemoteControlView(serverURL: serverURL, roomCode: roomCode)
+                        } label: {
+                            Label("Otwórz pilot Mi Box", systemImage: "av.remote.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+
                         BroadcastButton()
                             .frame(height: 54)
                         Text("Wybierz „MiBox Screen”, a następnie naciśnij „Rozpocznij transmisję”.")

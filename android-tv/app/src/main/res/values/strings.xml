@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MiBox Screen</string>
+    <string name="remote_accessibility_description">Sterowanie Mi Boxem z aplikacji MiBox Screen na iPhonie.</string>
+</resources>
