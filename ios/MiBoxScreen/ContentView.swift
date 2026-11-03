@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var cast = CastManager()
     @StateObject private var receiver = NativeReceiverManager()
     @StateObject private var remote = MiBoxRemoteModel()
     @StateObject private var purchases = PurchaseManager()
@@ -14,21 +13,8 @@ struct ContentView: View {
                     Text("Wideo i pilot Mi Box")
                         .font(.largeTitle.bold())
 
-                    HStack(spacing: 14) {
-                        CastButton().frame(width: 44, height: 44)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(cast.deviceName ?? "Wybierz Mi Box").font(.headline)
-                            Text(cast.isConnected ? "Połączono przez Google Cast" : "Naciśnij ikonę Cast i wybierz telewizor")
-                                .font(.footnote)
-                                .foregroundStyle(cast.isConnected ? Color.green : Color.secondary)
-                        }
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
-
                     VStack(alignment: .leading, spacing: 10) {
-                        Label("Aplikacja odbiornika na Mi Boxie", systemImage: "tv.and.mediabox")
+                        Label("Połączenie z Mi Boxem", systemImage: "tv.and.mediabox")
                             .font(.headline)
                         Text(receiver.status)
                             .font(.footnote)
@@ -45,7 +31,7 @@ struct ContentView: View {
                     .padding()
                     .background(Color.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
 
-                    VideoCastView(cast: cast, receiver: receiver)
+                    VideoCastView(receiver: receiver)
 
                     Divider()
                     Label("Pilot", systemImage: "av.remote.fill")
@@ -64,11 +50,9 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showsPro) { ProPurchaseView(purchases: purchases) }
             .task {
-                cast.start()
                 receiver.start()
             }
             .onDisappear {
-                cast.stop()
                 receiver.stop()
             }
         }

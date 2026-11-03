@@ -146,7 +146,6 @@ final class NativeReceiverManager: NSObject, ObservableObject {
               service.port > 0 else { return }
         let txt = NetService.dictionary(fromTXTRecord: service.txtRecordData() ?? Data())
         let room = txt["room"].flatMap { String(data: $0, encoding: .utf8) } ?? ""
-        guard !room.isEmpty else { return }
         let device = NativeReceiverDevice(name: service.name, host: host, port: service.port, roomCode: room)
         if !devices.contains(device) { devices.append(device) }
         status = "Znaleziono \(device.name)"

@@ -4,9 +4,6 @@ options:
   deploymentTarget:
     iOS: "16.0"
 packages:
-  GoogleCast:
-    url: https://github.com/googlecast/google-cast-ios-sdk.git
-    from: 4.8.6
   AndroidTVRemoteControl:
     url: https://github.com/odyshewroman/AndroidTVRemoteControl.git
     from: 2.4.16
@@ -37,8 +34,6 @@ targets:
           PROVISIONING_PROFILE_SPECIFIER: MiBox Screen App Store
     dependencies:
       - target: ScreenBroadcast
-      - package: GoogleCast
-        product: GoogleCastDynamic
       - package: AndroidTVRemoteControl
         product: AndroidTVRemoteControl
     postCompileScripts: []

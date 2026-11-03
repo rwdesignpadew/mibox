@@ -54,7 +54,8 @@ class LocalSignalServer(
     }
 
     private fun join(connection: WebSocket, message: JSONObject) {
-        if (message.optString("role") != "sender" || message.optString("roomCode") != roomCode) {
+        val suppliedRoom = message.optString("roomCode")
+        if (message.optString("role") != "sender" || (suppliedRoom.isNotEmpty() && suppliedRoom != roomCode)) {
             send(connection, JSONObject().put("type", "error").put("message", "Nieprawidłowy kod telewizora"))
             connection.close(1008, "Invalid room code")
             return

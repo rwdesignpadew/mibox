@@ -28,8 +28,6 @@
     <key>NSLocalNetworkUsageDescription</key><string>Wykrywanie Mi Boxa, odtwarzanie wideo przez Google Cast i obsługa pilota w tej samej sieci Wi-Fi.</string>
     <key>NSBonjourServices</key>
     <array>
-        <string>_googlecast._tcp</string>
-        <string>_CC1AD845._googlecast._tcp</string>
         <string>_androidtvremote2._tcp</string>
         <string>_miboxscreen._tcp</string>
     </array>

@@ -3,7 +3,6 @@ import SwiftUI
 import WebKit
 
 struct VideoCastView: View {
-    @ObservedObject var cast: CastManager
     @ObservedObject var receiver: NativeReceiverManager
     @Environment(\.scenePhase) private var scenePhase
     @State private var address = ""
@@ -48,26 +47,14 @@ struct VideoCastView: View {
             .buttonStyle(.bordered)
             .disabled(!canPlay)
 
-            if let playbackMessage = cast.playbackMessage {
-                Label(playbackMessage, systemImage: "arrow.up.forward.circle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.green)
-            }
-
-            if let errorMessage = cast.errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-            }
-
             if !canPlay {
-                Text("Uruchom aplikację MiBox Screen na telewizorze albo wybierz urządzenie ikoną Cast.")
+                Text("Uruchom aplikację MiBox Screen na telewizorze. Połączenie nastąpi automatycznie.")
                     .font(.footnote)
                     .foregroundStyle(.orange)
             }
         }
         .sheet(item: $browserDestination) { destination in
-            VideoBrowserSheet(initialURL: destination.url, cast: cast, receiver: receiver)
+            VideoBrowserSheet(initialURL: destination.url, receiver: receiver)
         }
         .onAppear { consumeSharedURL() }
         .onChange(of: scenePhase) { phase in
@@ -118,14 +105,10 @@ struct VideoCastView: View {
             .contains(where: path.hasSuffix)
     }
 
-    private var canPlay: Bool { receiver.isConnected || cast.isConnected }
+    private var canPlay: Bool { receiver.isConnected }
 
     private func play(_ url: URL, title: String? = nil) {
-        if receiver.isConnected {
-            receiver.play(url, title: title)
-        } else {
-            cast.castVideo(url, title: title)
-        }
+        receiver.play(url, title: title)
     }
 }
 
@@ -136,7 +119,6 @@ private struct BrowserDestination: Identifiable {
 
 private struct VideoBrowserSheet: View {
     let initialURL: URL
-    @ObservedObject var cast: CastManager
     @ObservedObject var receiver: NativeReceiverManager
     @Environment(\.dismiss) private var dismiss
     @StateObject private var browser = VideoBrowserModel()
@@ -157,11 +139,7 @@ private struct VideoBrowserSheet: View {
                             browser.findPlayableVideo { result in
                                 switch result {
                                 case .success(let playable):
-                                    if receiver.isConnected {
-                                        receiver.play(playable.url, title: browser.title, headers: playable.headers)
-                                    } else {
-                                        cast.castVideo(playable.url, title: browser.title)
-                                    }
+                                    receiver.play(playable.url, title: browser.title, headers: playable.headers)
                                 case .failure:
                                     message = "Nie znaleziono bezpośredniego filmu na tej stronie. Uruchom film na stronie i spróbuj ponownie. Materiałów zabezpieczonych DRM nie można przejąć z innej aplikacji."
                                 }
@@ -169,7 +147,7 @@ private struct VideoBrowserSheet: View {
                         } label: {
                             Label("Odtwórz na TV", systemImage: "play.tv.fill")
                         }
-                        .disabled((!receiver.isConnected && !cast.isConnected) || browser.isLoading)
+                        .disabled(!receiver.isConnected || browser.isLoading)
                     }
                 }
         }
