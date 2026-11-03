@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var cast = CastManager()
+    @StateObject private var receiver = NativeReceiverManager()
     @StateObject private var remote = MiBoxRemoteModel()
     @StateObject private var purchases = PurchaseManager()
     @State private var showsPro = ProcessInfo.processInfo.arguments.contains("--show-pro")
@@ -26,7 +27,25 @@ struct ContentView: View {
                     .padding()
                     .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
 
-                    VideoCastView(cast: cast)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("Aplikacja odbiornika na Mi Boxie", systemImage: "tv.and.mediabox")
+                            .font(.headline)
+                        Text(receiver.status)
+                            .font(.footnote)
+                            .foregroundStyle(receiver.isConnected ? Color.green : Color.secondary)
+                        if let error = receiver.errorMessage {
+                            Text(error).font(.footnote).foregroundStyle(.red)
+                        }
+                        if !receiver.isConnected {
+                            Button("Szukaj ponownie") { receiver.reconnect() }
+                                .buttonStyle(.bordered)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
+
+                    VideoCastView(cast: cast, receiver: receiver)
 
                     Divider()
                     Label("Pilot", systemImage: "av.remote.fill")
@@ -46,8 +65,12 @@ struct ContentView: View {
             .sheet(isPresented: $showsPro) { ProPurchaseView(purchases: purchases) }
             .task {
                 cast.start()
+                receiver.start()
             }
-            .onDisappear { cast.stop() }
+            .onDisappear {
+                cast.stop()
+                receiver.stop()
+            }
         }
     }
 }

@@ -15,6 +15,7 @@ class LocalSignalServer(
         fun onSenderJoined(isPro: Boolean)
         fun onSenderLeft()
         fun onSignal(message: JSONObject)
+        fun onPlaybackCommand(message: JSONObject)
         fun onServerError(message: String)
     }
 
@@ -43,8 +44,10 @@ class LocalSignalServer(
             return
         }
 
-        if (message.optString("type") in setOf("offer", "ice-candidate", "stop")) {
+        if (message.optString("type") in setOf("offer", "ice-candidate")) {
             listener.onSignal(message)
+        } else if (message.optString("type") in setOf("play", "pause", "resume", "stop", "seek")) {
+            listener.onPlaybackCommand(message)
         } else {
             send(connection, JSONObject().put("type", "error").put("message", "Unsupported message"))
         }
@@ -72,6 +75,12 @@ class LocalSignalServer(
     }
 
     fun sendSignal(message: JSONObject) {
+        sender?.takeIf { it.isOpen }?.let { send(it, message) }
+    }
+
+    fun sendPlaybackStatus(state: String, error: String? = null) {
+        val message = JSONObject().put("type", "playback-status").put("state", state)
+        if (error != null) message.put("error", error)
         sender?.takeIf { it.isOpen }?.let { send(it, message) }
     }
 

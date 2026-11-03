@@ -10,6 +10,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.media3.ui.PlayerView
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -31,15 +32,27 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
     private lateinit var serviceAdvertiser: ReceiverServiceAdvertiser
     private lateinit var udpDiscoveryResponder: UdpDiscoveryResponder
     private lateinit var receiver: WebRtcReceiver
+    private lateinit var directPlayer: DirectVideoPlayer
+    private lateinit var playerView: PlayerView
     private var proSession = false
-    private val roomCode = SecureRandom().nextInt(1_000_000).toString().padStart(6, '0')
+    private lateinit var roomCode: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
 
+        val preferences = getSharedPreferences("receiver", MODE_PRIVATE)
+        roomCode = preferences.getString("roomCode", null) ?: SecureRandom()
+            .nextInt(1_000_000).toString().padStart(6, '0').also {
+                preferences.edit().putString("roomCode", it).apply()
+            }
+
         renderer = SurfaceViewRenderer(this)
+        playerView = PlayerView(this).apply {
+            visibility = View.GONE
+            setBackgroundColor(Color.BLACK)
+        }
         statusView = textView(22f, "Oczekiwanie na iPhone'a")
         val adRepository = HouseAdRepository(this)
         houseAdBanner = HouseAdBanner(this, adRepository)
@@ -69,6 +82,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         }
         setContentView(FrameLayout(this).apply {
             addView(renderer, FrameLayout.LayoutParams(-1, -1))
+            addView(playerView, FrameLayout.LayoutParams(-1, -1))
             addView(this@MainActivity.overlay, FrameLayout.LayoutParams(-1, -1))
             addView(houseAdBanner, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
                 setMargins(48, 48, 48, 48)
@@ -76,6 +90,12 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         })
 
         signalServer = LocalSignalServer(SIGNAL_PORT, roomCode, this)
+        directPlayer = DirectVideoPlayer(this, playerView) { state, error ->
+            runOnUiThread {
+                signalServer.sendPlaybackStatus(state, error)
+                updatePlaybackStatus(state, error)
+            }
+        }
         receiver = WebRtcReceiver(this, renderer, signalServer::sendSignal) {
             status -> runOnUiThread { updateStatus(status) }
         }
@@ -137,6 +157,33 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
     }
 
     override fun onSignal(message: JSONObject) = runOnUiThread { receiver.handle(message) }
+    override fun onPlaybackCommand(message: JSONObject) = runOnUiThread {
+        when (message.optString("type")) {
+            "play" -> {
+                val url = message.optString("url")
+                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    signalServer.sendPlaybackStatus("error", "Nieprawidłowy adres filmu")
+                    return@runOnUiThread
+                }
+                val headersObject = message.optJSONObject("headers")
+                val headers = buildMap {
+                    headersObject?.keys()?.forEach { key -> put(key, headersObject.optString(key)) }
+                }
+                playerView.visibility = View.VISIBLE
+                renderer.visibility = View.GONE
+                overlay.visibility = View.GONE
+                directPlayer.play(url, message.optString("title").takeIf { it.isNotBlank() }, headers)
+            }
+            "pause" -> directPlayer.pause()
+            "resume" -> directPlayer.resume()
+            "stop" -> {
+                directPlayer.stop()
+                playerView.visibility = View.GONE
+                overlay.visibility = View.VISIBLE
+            }
+            "seek" -> directPlayer.seekTo(message.optLong("positionMs"))
+        }
+    }
     override fun onServerError(message: String) = runOnUiThread { updateStatus("Błąd: $message") }
 
     private fun updateStatus(value: String) {
@@ -144,6 +191,21 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         val connected = value.equals("Connected", ignoreCase = true)
         overlay.visibility = if (connected) View.GONE else View.VISIBLE
         if (connected && !proSession) houseAdBanner.start() else houseAdBanner.stop()
+    }
+
+    private fun updatePlaybackStatus(state: String, error: String?) {
+        statusView.text = error ?: when (state) {
+            "loading" -> "Ładowanie filmu…"
+            "buffering" -> "Buforowanie…"
+            "playing" -> "Odtwarzanie"
+            "paused" -> "Pauza"
+            "ended" -> "Film zakończony"
+            else -> state
+        }
+        if (state == "error") {
+            playerView.visibility = View.GONE
+            overlay.visibility = View.VISIBLE
+        }
     }
 
     override fun onDestroy() {
@@ -154,6 +216,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         udpDiscoveryResponder.stop()
         runCatching { signalServer.stop(1_000) }
         receiver.release()
+        directPlayer.release()
         super.onDestroy()
     }
 

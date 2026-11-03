@@ -30,4 +30,8 @@ dependencies {
     implementation("org.nanohttpd:nanohttpd:2.3.1")
     implementation("io.github.webrtc-sdk:android:150.7871.01")
     implementation("com.google.zxing:core:3.5.3")
+    implementation("androidx.media3:media3-exoplayer:1.9.4")
+    implementation("androidx.media3:media3-exoplayer-hls:1.9.4")
+    implementation("androidx.media3:media3-exoplayer-dash:1.9.4")
+    implementation("androidx.media3:media3-ui:1.9.4")
 }

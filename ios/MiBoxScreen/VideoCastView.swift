@@ -4,6 +4,7 @@ import WebKit
 
 struct VideoCastView: View {
     @ObservedObject var cast: CastManager
+    @ObservedObject var receiver: NativeReceiverManager
     @Environment(\.scenePhase) private var scenePhase
     @State private var address = ""
     @State private var browserDestination: BrowserDestination?
@@ -30,14 +31,14 @@ struct VideoCastView: View {
                     .disabled(normalizedURL == nil)
 
                 if let url = normalizedURL, Self.isDirectMediaURL(url) {
-                    Button("Odtwórz na TV") { cast.castVideo(url) }
+                    Button("Odtwórz na TV") { play(url) }
                         .buttonStyle(.bordered)
-                    .disabled(!cast.isConnected)
+                        .disabled(!canPlay)
                 }
             }
 
             Button {
-                cast.castVideo(
+                play(
                     URL(string: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4")!,
                     title: "Test MiBox Screen"
                 )
@@ -45,7 +46,7 @@ struct VideoCastView: View {
                 Label("Sprawdź odtwarzanie filmem testowym", systemImage: "checkmark.tv")
             }
             .buttonStyle(.bordered)
-            .disabled(!cast.isConnected)
+            .disabled(!canPlay)
 
             if let playbackMessage = cast.playbackMessage {
                 Label(playbackMessage, systemImage: "arrow.up.forward.circle.fill")
@@ -59,14 +60,14 @@ struct VideoCastView: View {
                     .foregroundStyle(.red)
             }
 
-            if !cast.isConnected {
-                Text("Najpierw wybierz Mi Box ikoną Cast powyżej.")
+            if !canPlay {
+                Text("Uruchom aplikację MiBox Screen na telewizorze albo wybierz urządzenie ikoną Cast.")
                     .font(.footnote)
                     .foregroundStyle(.orange)
             }
         }
         .sheet(item: $browserDestination) { destination in
-            VideoBrowserSheet(initialURL: destination.url, cast: cast)
+            VideoBrowserSheet(initialURL: destination.url, cast: cast, receiver: receiver)
         }
         .onAppear { consumeSharedURL() }
         .onChange(of: scenePhase) { phase in
@@ -96,7 +97,7 @@ struct VideoCastView: View {
             return
         }
         if Self.isDirectMediaURL(url) {
-            cast.castVideo(url)
+            play(url)
         } else {
             browserDestination = BrowserDestination(url: url)
         }
@@ -116,6 +117,16 @@ struct VideoCastView: View {
         return [".m3u8", ".mpd", ".mp4", ".mov", ".m4v", ".webm"]
             .contains(where: path.hasSuffix)
     }
+
+    private var canPlay: Bool { receiver.isConnected || cast.isConnected }
+
+    private func play(_ url: URL, title: String? = nil) {
+        if receiver.isConnected {
+            receiver.play(url, title: title)
+        } else {
+            cast.castVideo(url, title: title)
+        }
+    }
 }
 
 private struct BrowserDestination: Identifiable {
@@ -126,6 +137,7 @@ private struct BrowserDestination: Identifiable {
 private struct VideoBrowserSheet: View {
     let initialURL: URL
     @ObservedObject var cast: CastManager
+    @ObservedObject var receiver: NativeReceiverManager
     @Environment(\.dismiss) private var dismiss
     @StateObject private var browser = VideoBrowserModel()
     @State private var message: String?
@@ -144,8 +156,12 @@ private struct VideoBrowserSheet: View {
                         Button {
                             browser.findPlayableVideo { result in
                                 switch result {
-                                case .success(let url):
-                                    cast.castVideo(url, title: browser.title)
+                                case .success(let playable):
+                                    if receiver.isConnected {
+                                        receiver.play(playable.url, title: browser.title, headers: playable.headers)
+                                    } else {
+                                        cast.castVideo(playable.url, title: browser.title)
+                                    }
                                 case .failure:
                                     message = "Nie znaleziono bezpośredniego filmu na tej stronie. Uruchom film na stronie i spróbuj ponownie. Materiałów zabezpieczonych DRM nie można przejąć z innej aplikacji."
                                 }
@@ -153,7 +169,7 @@ private struct VideoBrowserSheet: View {
                         } label: {
                             Label("Odtwórz na TV", systemImage: "play.tv.fill")
                         }
-                        .disabled(!cast.isConnected || browser.isLoading)
+                        .disabled((!receiver.isConnected && !cast.isConnected) || browser.isLoading)
                     }
                 }
         }
@@ -181,7 +197,7 @@ private final class VideoBrowserModel: NSObject, ObservableObject, WKNavigationD
         isLoading = true
     }
 
-    func findPlayableVideo(completion: @escaping (Result<URL, Error>) -> Void) {
+    func findPlayableVideo(completion: @escaping (Result<PlayableVideo, Error>) -> Void) {
         let script = """
         (() => {
           const found = [];
@@ -204,12 +220,29 @@ private final class VideoBrowserModel: NSObject, ObservableObject, WKNavigationD
             let preferred = urls.first(where: { ["m3u8", "mpd"].contains($0.pathExtension.lowercased()) })
                 ?? urls.first
             if let preferred {
-                completion(.success(preferred))
+                webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
+                    var headers: [String: String] = [:]
+                    if let referer = webView.url?.absoluteString { headers["Referer"] = referer }
+                    let host = preferred.host?.lowercased() ?? ""
+                    let matching = cookies.filter {
+                        let domain = $0.domain.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
+                        return host == domain || host.hasSuffix(".\(domain)")
+                    }
+                    if !matching.isEmpty {
+                        headers["Cookie"] = matching.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
+                    }
+                    completion(.success(PlayableVideo(url: preferred, headers: headers)))
+                }
             } else {
                 completion(.failure(NSError(domain: "MiBoxScreen.Video", code: 1)))
             }
         }
     }
+}
+
+private struct PlayableVideo {
+    let url: URL
+    let headers: [String: String]
 }
 
 private struct VideoWebView: UIViewRepresentable {
