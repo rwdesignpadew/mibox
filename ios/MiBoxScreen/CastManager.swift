@@ -3,7 +3,7 @@ import GoogleCast
 import Foundation
 
 @MainActor
-final class CastManager: NSObject, ObservableObject, GCKRequestDelegate {
+final class CastManager: NSObject, ObservableObject, @preconcurrency GCKRequestDelegate {
     @Published private(set) var isConnected = false
     @Published private(set) var deviceName: String?
     @Published private(set) var errorMessage: String?
@@ -71,7 +71,7 @@ final class CastManager: NSObject, ObservableObject, GCKRequestDelegate {
         errorMessage = Self.readableMessage(for: error)
     }
 
-    func request(_ request: GCKRequest, didAbortWithReason abortReason: GCKRequestAbortReason) {
+    func request(_ request: GCKRequest, didAbortWith abortReason: GCKRequestAbortReason) {
         playbackMessage = nil
         errorMessage = "Mi Box przerwał wysyłanie filmu (kod: \(abortReason.rawValue)). Spróbuj ponownie."
     }
