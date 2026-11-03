@@ -141,8 +141,8 @@ private struct ProPurchaseView: View {
 }
 
 private struct BroadcastButton: UIViewRepresentable {
-    func makeUIView(context: Context) -> RPSystemBroadcastPickerView {
-        let picker = RPSystemBroadcastPickerView()
+    func makeUIView(context: Context) -> FullWidthBroadcastPicker {
+        let picker = FullWidthBroadcastPicker()
         picker.preferredExtension = "pl.miboxscreen.ios.broadcast"
         picker.showsMicrophoneButton = false
         picker.accessibilityLabel = "Rozpocznij udostępnianie ekranu"
@@ -154,12 +154,25 @@ private struct BroadcastButton: UIViewRepresentable {
         return picker
     }
 
-    func updateUIView(_ uiView: RPSystemBroadcastPickerView, context: Context) {}
+    func updateUIView(_ uiView: FullWidthBroadcastPicker, context: Context) {
+        uiView.setNeedsLayout()
+    }
+}
+
+private final class FullWidthBroadcastPicker: RPSystemBroadcastPickerView {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if let button = subviews.compactMap({ $0 as? UIButton }).first {
+            button.frame = bounds
+            button.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        }
+    }
 }
 
 private struct BroadcastControl: View {
     var body: some View {
         BroadcastButton()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.blue)
