@@ -3,25 +3,17 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var cast = CastManager()
+    @StateObject private var remote = MiBoxRemoteModel()
     @StateObject private var purchases = PurchaseManager()
     @State private var showsPro = ProcessInfo.processInfo.arguments.contains("--show-pro")
-    @State private var mode = 0
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 22) {
-                Text(mode == 0 ? "Udostępnij ekran na Mi Box" : "Pilot do Mi Boxa")
-                    .font(.largeTitle.bold())
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Ekran i pilot Mi Box")
+                        .font(.largeTitle.bold())
 
-                Picker("Tryb", selection: $mode) {
-                    Label("Ekran", systemImage: "rectangle.on.rectangle").tag(0)
-                    Label("Pilot", systemImage: "av.remote.fill").tag(1)
-                }
-                .pickerStyle(.segmented)
-
-                if mode == 1 {
-                    MiBoxRemoteView()
-                } else {
                     HStack(spacing: 14) {
                         CastButton().frame(width: 44, height: 44)
                         VStack(alignment: .leading, spacing: 3) {
@@ -37,9 +29,9 @@ struct ContentView: View {
 
                     if cast.isConnected {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("2. Rozpocznij udostępnianie").font(.headline)
+                            Text("Udostępnianie ekranu").font(.headline)
                             BroadcastButton().frame(height: 54)
-                            Text("W oknie systemowym wybierz „MiBox Screen”, a następnie „Rozpocznij transmisję”.")
+                            Text("Po uruchomieniu transmisji pilot poniżej pozostaje aktywny.")
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
                     } else {
@@ -47,12 +39,13 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Spacer()
-                    Text("iPhone i Mi Box muszą być w tej samej sieci Wi‑Fi.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                    Divider()
+                    Label("Pilot", systemImage: "av.remote.fill")
+                        .font(.title2.bold())
+                    MiBoxRemoteView(model: remote)
                 }
+                .padding(24)
             }
-            .padding(24)
             .navigationTitle("MiBox Screen")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

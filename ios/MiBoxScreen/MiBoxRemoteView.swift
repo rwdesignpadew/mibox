@@ -2,27 +2,25 @@ import AndroidTVRemoteControl
 import SwiftUI
 
 struct MiBoxRemoteView: View {
-    @StateObject private var model = MiBoxRemoteModel()
+    @ObservedObject var model: MiBoxRemoteModel
     @State private var manualHost = ""
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                HStack {
-                    Circle().fill(model.isConnected ? Color.green : Color.orange).frame(width: 10, height: 10)
-                    Text(model.status).font(.headline)
-                    Spacer()
-                    Button { model.startScanning() } label: { Image(systemName: "arrow.clockwise") }
-                }
-
-                if !model.isConnected {
-                    devicePicker
-                } else {
-                    remoteControls
-                }
+        VStack(spacing: 18) {
+            HStack {
+                Circle().fill(model.isConnected ? Color.green : Color.orange).frame(width: 10, height: 10)
+                Text(model.status).font(.headline)
+                Spacer()
+                Button { model.startScanning() } label: { Image(systemName: "arrow.clockwise") }
             }
-            .padding(.vertical, 8)
+
+            if !model.isConnected {
+                devicePicker
+            } else {
+                remoteControls
+            }
         }
+        .padding(.vertical, 8)
         .onAppear { if model.devices.isEmpty && !model.isConnected { model.startScanning() } }
         .sheet(isPresented: $model.needsPairingCode) {
             NavigationStack {
