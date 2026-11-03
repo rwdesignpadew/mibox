@@ -198,6 +198,10 @@ private final class VideoBrowserModel: NSObject, ObservableObject, WKNavigationD
     }
 
     func findPlayableVideo(completion: @escaping (Result<PlayableVideo, Error>) -> Void) {
+        guard let webView else {
+            completion(.failure(NSError(domain: "MiBoxScreen.Video", code: 2)))
+            return
+        }
         let script = """
         (() => {
           const found = [];
@@ -214,7 +218,7 @@ private final class VideoBrowserModel: NSObject, ObservableObject, WKNavigationD
           return found;
         })();
         """
-        webView?.evaluateJavaScript(script) { value, error in
+        webView.evaluateJavaScript(script) { value, error in
             if let error { completion(.failure(error)); return }
             let urls = (value as? [String] ?? []).compactMap(URL.init(string:))
             let preferred = urls.first(where: { ["m3u8", "mpd"].contains($0.pathExtension.lowercased()) })
