@@ -12,15 +12,22 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
 
     private let queue = DispatchQueue(label: "pl.miboxscreen.hls")
     private let port: NWEndpoint.Port = 8090
+    private let segmentDuration = 1.0
+    private let maximumSegmentCount = 45
     private var listener: NWListener?
     private var writer: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
     private var initializationSegment: Data?
     private var segments: [Segment] = []
     private var nextSequence = 0
+    private var sessionID = UUID().uuidString
 
     func start() throws {
         SharedSettings.defaults.removeObject(forKey: SharedSettings.streamURLKey)
+        initializationSegment = nil
+        segments.removeAll(keepingCapacity: true)
+        nextSequence = 0
+        sessionID = UUID().uuidString
         let listener = try NWListener(using: .tcp, on: port)
         listener.newConnectionHandler = { [weak self] connection in
             guard let self else { return }
@@ -71,20 +78,25 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
             let writer = try AVAssetWriter(contentType: .mpeg4Movie)
             writer.delegate = self
             writer.outputFileTypeProfile = .mpeg4AppleHLS
-            writer.preferredOutputSegmentInterval = CMTime(seconds: 2, preferredTimescale: 600)
+            writer.preferredOutputSegmentInterval = CMTime(seconds: segmentDuration, preferredTimescale: 600)
             writer.initialSegmentStartTime = .zero
 
-            let width = CVPixelBufferGetWidth(imageBuffer)
-            let height = CVPixelBufferGetHeight(imageBuffer)
+            let sourceWidth = CVPixelBufferGetWidth(imageBuffer)
+            let sourceHeight = CVPixelBufferGetHeight(imageBuffer)
+            let scale = min(1, min(1920.0 / Double(sourceWidth), 1080.0 / Double(sourceHeight)))
+            let width = max(2, Int(Double(sourceWidth) * scale) / 2 * 2)
+            let height = max(2, Int(Double(sourceHeight) * scale) / 2 * 2)
             let settings: [String: Any] = [
                 AVVideoCodecKey: AVVideoCodecType.h264,
                 AVVideoWidthKey: width,
                 AVVideoHeightKey: height,
                 AVVideoCompressionPropertiesKey: [
-                    AVVideoAverageBitRateKey: 4_000_000,
+                    AVVideoAverageBitRateKey: 3_000_000,
                     AVVideoExpectedSourceFrameRateKey: 30,
-                    AVVideoMaxKeyFrameIntervalKey: 60,
-                    AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
+                    AVVideoMaxKeyFrameIntervalKey: 30,
+                    AVVideoMaxKeyFrameIntervalDurationKey: segmentDuration,
+                    AVVideoAllowFrameReorderingKey: false,
+                    AVVideoProfileLevelKey: AVVideoProfileLevelH264MainAutoLevel
                 ]
             ]
             let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
@@ -112,16 +124,19 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
             } else {
                 self.segments.append(Segment(sequence: self.nextSequence, data: segmentData))
                 self.nextSequence += 1
-                if self.segments.count > 6 { self.segments.removeFirst() }
+                if self.segments.count > self.maximumSegmentCount { self.segments.removeFirst() }
             }
             self.publishURLIfReady()
         }
     }
 
     private func publishURLIfReady() {
-        guard initializationSegment != nil, segments.count >= 2,
+        guard initializationSegment != nil, !segments.isEmpty,
               let address = Self.wifiIPv4Address() else { return }
-        SharedSettings.defaults.set("http://\(address):\(port.rawValue)/live.m3u8", forKey: SharedSettings.streamURLKey)
+        SharedSettings.defaults.set(
+            "http://\(address):\(port.rawValue)/live.m3u8?session=\(sessionID)",
+            forKey: SharedSettings.streamURLKey
+        )
     }
 
     private func receiveRequest(on connection: NWConnection) {
@@ -132,7 +147,8 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
                 connection.cancel()
                 return
             }
-            let path = firstLine.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
+            let requestTarget = firstLine.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
+            let path = requestTarget.split(separator: "?", maxSplits: 1).first.map(String.init) ?? "/"
             self.sendResponse(for: path, on: connection)
         }
     }
@@ -166,9 +182,9 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
 
     private func playlist() -> String {
         let first = segments.first?.sequence ?? 0
-        var text = "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:\(first)\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-MAP:URI=\"init.mp4\"\n"
+        var text = "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:\(first)\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-MAP:URI=\"init.mp4\"\n"
         for segment in segments {
-            text += "#EXTINF:2.000,\nsegment\(segment.sequence).m4s\n"
+            text += "#EXTINF:1.000,\nsegment\(segment.sequence).m4s\n"
         }
         return text
     }
