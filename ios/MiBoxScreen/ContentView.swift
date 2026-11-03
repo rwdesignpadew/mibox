@@ -30,7 +30,7 @@ struct ContentView: View {
                     if cast.isConnected {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Udostępnianie ekranu").font(.headline)
-                            BroadcastButton().frame(height: 54)
+                            BroadcastControl().frame(height: 54)
                             Text("Po uruchomieniu transmisji pilot poniżej pozostaje aktywny.")
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
@@ -145,15 +145,31 @@ private struct BroadcastButton: UIViewRepresentable {
         let picker = RPSystemBroadcastPickerView()
         picker.preferredExtension = "pl.miboxscreen.ios.broadcast"
         picker.showsMicrophoneButton = false
+        picker.accessibilityLabel = "Rozpocznij udostępnianie ekranu"
         if let button = picker.subviews.compactMap({ $0 as? UIButton }).first {
             button.setImage(nil, for: .normal)
-            button.setTitle("Rozpocznij udostępnianie", for: .normal)
-            button.setTitleColor(.white, for: .normal)
-            button.backgroundColor = UIColor(red: 0.12, green: 0.42, blue: 0.85, alpha: 1)
-            button.layer.cornerRadius = 12
+            button.setTitle(nil, for: .normal)
+            button.backgroundColor = .clear
         }
         return picker
     }
 
     func updateUIView(_ uiView: RPSystemBroadcastPickerView, context: Context) {}
+}
+
+private struct BroadcastControl: View {
+    var body: some View {
+        BroadcastButton()
+            .overlay {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.blue)
+                    .overlay {
+                        Label("Rozpocznij udostępnianie", systemImage: "rectangle.on.rectangle")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                    }
+                    .allowsHitTesting(false)
+            }
+            .contentShape(Rectangle())
+    }
 }
