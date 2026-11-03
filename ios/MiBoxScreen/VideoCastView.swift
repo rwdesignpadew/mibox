@@ -32,8 +32,31 @@ struct VideoCastView: View {
                 if let url = normalizedURL, Self.isDirectMediaURL(url) {
                     Button("Odtwórz na TV") { cast.castVideo(url) }
                         .buttonStyle(.bordered)
-                        .disabled(!cast.isConnected)
+                    .disabled(!cast.isConnected)
                 }
+            }
+
+            Button {
+                cast.castVideo(
+                    URL(string: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4")!,
+                    title: "Test MiBox Screen"
+                )
+            } label: {
+                Label("Sprawdź odtwarzanie filmem testowym", systemImage: "checkmark.tv")
+            }
+            .buttonStyle(.bordered)
+            .disabled(!cast.isConnected)
+
+            if let playbackMessage = cast.playbackMessage {
+                Label(playbackMessage, systemImage: "arrow.up.forward.circle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.green)
+            }
+
+            if let errorMessage = cast.errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.red)
             }
 
             if !cast.isConnected {
