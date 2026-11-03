@@ -52,6 +52,10 @@ struct ContentView: View {
             .task {
                 receiver.start()
             }
+            .onChange(of: receiver.connectedDevice) { device in
+                guard let device else { return }
+                remote.connectToReceiver(name: device.name, host: device.host)
+            }
             .onDisappear {
                 receiver.stop()
             }

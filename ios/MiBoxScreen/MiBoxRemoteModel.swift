@@ -103,6 +103,21 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
         select(RemoteDevice(name: "Mi Box", host: clean))
     }
 
+    func connectToReceiver(name: String, host: String) {
+        let cleanHost = host.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        guard !cleanHost.isEmpty else { return }
+        if isConnected, selectedDevice?.host == cleanHost { return }
+
+        let device = RemoteDevice(name: name, host: cleanHost)
+        selectedDevice = device
+        defaults.set(cleanHost, forKey: StorageKey.lastHost)
+        defaults.set(name, forKey: StorageKey.lastName)
+        mayStartPairingAfterFailure = !isKnownPaired(device)
+        status = "Łączenie pilota z \(name)…"
+        isConnecting = true
+        remoteManager.connect(cleanHost)
+    }
+
     func resumeRememberedConnection() {
         guard !isConnected, !isConnecting, let device = selectedDevice ?? rememberedDevice else {
             if selectedDevice == nil && rememberedDevice == nil { startScanning() }
