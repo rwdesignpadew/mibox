@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MiBoxRemoteView: View {
     @ObservedObject var model: MiBoxRemoteModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var manualHost = ""
 
     var body: some View {
@@ -21,7 +22,10 @@ struct MiBoxRemoteView: View {
             }
         }
         .padding(.vertical, 8)
-        .onAppear { if model.devices.isEmpty && !model.isConnected { model.startScanning() } }
+        .onAppear { model.resumeRememberedConnection() }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { model.resumeRememberedConnection() }
+        }
         .sheet(isPresented: $model.needsPairingCode) {
             NavigationStack {
                 VStack(spacing: 20) {
@@ -49,6 +53,14 @@ struct MiBoxRemoteView: View {
 
     private var devicePicker: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if model.canWakeRememberedDevice {
+                Button { model.power() } label: {
+                    Label("Wybudź Mi Box", systemImage: "power")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
             if model.isScanning { ProgressView("Szukam Mi Boxa w Wi‑Fi…") }
             ForEach(model.devices) { device in
                 Button { model.select(device) } label: {
@@ -61,6 +73,11 @@ struct MiBoxRemoteView: View {
                     TextField("Np. 192.168.1.25", text: $manualHost).keyboardType(.numbersAndPunctuation).textFieldStyle(.roundedBorder)
                     Button("Połącz") { model.connectManually(manualHost) }.buttonStyle(.borderedProminent)
                 }.padding(.top, 8)
+            }
+            if model.canWakeRememberedDevice {
+                Button("Sparuj ponownie") { model.pairAgain() }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
     }

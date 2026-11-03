@@ -28,6 +28,15 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
     private let defaults = UserDefaults.standard
     private var pendingKey: Key?
     private var attemptingWake = false
+    private var mayStartPairingAfterFailure = false
+    private var isConnecting = false
+
+    private enum StorageKey {
+        static let lastHost = "remote.lastHost"
+        static let lastName = "remote.lastName"
+        static let pairedHosts = "remote.pairedHosts"
+        static let pairedNames = "remote.pairedNames"
+    }
 
     override init() {
         let crypto = CryptoManager()
@@ -63,8 +72,8 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
     func startScanning() {
         stopScanning()
         devices = []
-        if let host = defaults.string(forKey: "remote.lastHost"),
-           let name = defaults.string(forKey: "remote.lastName") {
+        if let host = defaults.string(forKey: StorageKey.lastHost),
+           let name = defaults.string(forKey: StorageKey.lastName) {
             devices.append(RemoteDevice(name: name, host: host))
         }
         isScanning = true
@@ -75,13 +84,16 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
     func stopScanning() { browser.stop(); isScanning = false }
 
     func select(_ device: RemoteDevice) {
+        let wasRemembered = defaults.string(forKey: StorageKey.lastHost) == device.host
+        mayStartPairingAfterFailure = !isKnownPaired(device) && !wasRemembered
         selectedDevice = device
-        defaults.set(device.host, forKey: "remote.lastHost")
-        defaults.set(device.name, forKey: "remote.lastName")
+        defaults.set(device.host, forKey: StorageKey.lastHost)
+        defaults.set(device.name, forKey: StorageKey.lastName)
         stopScanning()
         status = "Łączenie z \(device.name)…"
-        // Zawsze najpierw próbujemy zapamiętanego certyfikatu. Gdy telewizor go nie zna,
-        // dopiero wtedy uruchamiane jest ponowne parowanie — także po zmianie adresu IP.
+        // Zapamiętane urządzenie nigdy nie przechodzi automatycznie do parowania tylko
+        // dlatego, że jest wyłączone. Ponowne parowanie uruchamia wyłącznie użytkownik.
+        isConnecting = true
         remoteManager.connect(device.host)
     }
 
@@ -89,6 +101,26 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
         let clean = host.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else { return }
         select(RemoteDevice(name: "Mi Box", host: clean))
+    }
+
+    func resumeRememberedConnection() {
+        guard !isConnected, !isConnecting, let device = selectedDevice ?? rememberedDevice else {
+            if selectedDevice == nil && rememberedDevice == nil { startScanning() }
+            return
+        }
+        selectedDevice = device
+        mayStartPairingAfterFailure = false
+        status = "Przywracam pilot \(device.name)…"
+        isConnecting = true
+        remoteManager.connect(device.host)
+    }
+
+    func pairAgain() {
+        guard let device = selectedDevice ?? rememberedDevice else { return }
+        selectedDevice = device
+        mayStartPairingAfterFailure = false
+        status = "Uruchamiam parowanie z \(device.name)…"
+        pairingManager.connect(device.host, "MiBox Screen", "iPhone")
     }
 
     func submitCode() {
@@ -106,6 +138,7 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
 
     func power() {
         if isConnected {
+            status = "Usypiam Mi Box…"
             remoteManager.send(KeyPress(.KEYCODE_POWER))
             return
         }
@@ -114,16 +147,35 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
             return
         }
         selectedDevice = device
+        mayStartPairingAfterFailure = false
         pendingKey = .KEYCODE_WAKEUP
         attemptingWake = true
         status = "Wybudzam \(device.name)…"
+        isConnecting = true
         remoteManager.connect(device.host)
     }
 
     private var rememberedDevice: RemoteDevice? {
-        guard let host = defaults.string(forKey: "remote.lastHost"),
-              let name = defaults.string(forKey: "remote.lastName") else { return nil }
+        guard let host = defaults.string(forKey: StorageKey.lastHost),
+              let name = defaults.string(forKey: StorageKey.lastName) else { return nil }
         return RemoteDevice(name: name, host: host)
+    }
+
+    var canWakeRememberedDevice: Bool { selectedDevice != nil || rememberedDevice != nil }
+
+    private func isKnownPaired(_ device: RemoteDevice) -> Bool {
+        let hosts = Set(defaults.stringArray(forKey: StorageKey.pairedHosts) ?? [])
+        let names = Set(defaults.stringArray(forKey: StorageKey.pairedNames) ?? [])
+        return hosts.contains(device.host) || names.contains(device.name)
+    }
+
+    private func rememberSuccessfulPairing(_ device: RemoteDevice) {
+        var hosts = Set(defaults.stringArray(forKey: StorageKey.pairedHosts) ?? [])
+        var names = Set(defaults.stringArray(forKey: StorageKey.pairedNames) ?? [])
+        hosts.insert(device.host)
+        names.insert(device.name)
+        defaults.set(Array(hosts), forKey: StorageKey.pairedHosts)
+        defaults.set(Array(names), forKey: StorageKey.pairedNames)
     }
 
     private func handlePairing(_ state: PairingManager.PairingState) {
@@ -135,7 +187,10 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
             needsPairingCode = false
             pairingCode = ""
             if let device = selectedDevice {
+                rememberSuccessfulPairing(device)
+                mayStartPairingAfterFailure = false
                 status = "Połączono. Uruchamiam pilot…"
+                isConnecting = true
                 remoteManager.connect(device.host)
             }
         case .error(let error):
@@ -148,14 +203,18 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
     private func handleRemote(_ state: RemoteManager.RemoteState) {
         switch state {
         case .paired:
+            isConnecting = false
             isConnected = true
             attemptingWake = false
+            mayStartPairingAfterFailure = false
+            if let device = selectedDevice { rememberSuccessfulPairing(device) }
             status = "Pilot połączony"
             if let key = pendingKey {
                 pendingKey = nil
                 remoteManager.send(KeyPress(key))
             }
-        case .error(let error):
+        case .error:
+            isConnecting = false
             isConnected = false
             if attemptingWake {
                 attemptingWake = false
@@ -164,10 +223,13 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
                 errorMessage = "Mi Box nie odpowiedział na wybudzanie przez usługę pilota. Niektóre modele wyłączają Wi‑Fi w głębokim uśpieniu."
                 return
             }
-            if let device = selectedDevice {
+            if mayStartPairingAfterFailure, let device = selectedDevice {
+                mayStartPairingAfterFailure = false
                 status = "Wymagane parowanie"
                 pairingManager.connect(device.host, "MiBox Screen", "iPhone")
-            } else { errorMessage = error.localizedDescription }
+            } else {
+                status = "Mi Box jest wyłączony lub poza siecią"
+            }
         default: break
         }
     }
