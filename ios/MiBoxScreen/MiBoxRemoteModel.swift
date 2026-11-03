@@ -26,6 +26,8 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
     private let pairingManager: PairingManager
     private let remoteManager: RemoteManager
     private let defaults = UserDefaults.standard
+    private var pendingKey: Key?
+    private var attemptingWake = false
 
     override init() {
         let crypto = CryptoManager()
@@ -61,6 +63,10 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
     func startScanning() {
         stopScanning()
         devices = []
+        if let host = defaults.string(forKey: "remote.lastHost"),
+           let name = defaults.string(forKey: "remote.lastName") {
+            devices.append(RemoteDevice(name: name, host: host))
+        }
         isScanning = true
         status = "Szukam urządzeń Android TV…"
         browser.searchForServices(ofType: "_androidtvremote2._tcp.", inDomain: "local.")
@@ -70,13 +76,13 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
 
     func select(_ device: RemoteDevice) {
         selectedDevice = device
+        defaults.set(device.host, forKey: "remote.lastHost")
+        defaults.set(device.name, forKey: "remote.lastName")
         stopScanning()
         status = "Łączenie z \(device.name)…"
-        if defaults.bool(forKey: "remote.paired.\(device.host)") {
-            remoteManager.connect(device.host)
-        } else {
-            pairingManager.connect(device.host, "MiBox Screen", "iPhone")
-        }
+        // Zawsze najpierw próbujemy zapamiętanego certyfikatu. Gdy telewizor go nie zna,
+        // dopiero wtedy uruchamiane jest ponowne parowanie — także po zmianie adresu IP.
+        remoteManager.connect(device.host)
     }
 
     func connectManually(_ host: String) {
@@ -98,6 +104,28 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
         remoteManager.send(KeyPress(key))
     }
 
+    func power() {
+        if isConnected {
+            remoteManager.send(KeyPress(.KEYCODE_POWER))
+            return
+        }
+        guard let device = selectedDevice ?? rememberedDevice else {
+            errorMessage = "Najpierw wybierz i sparuj Mi Box."
+            return
+        }
+        selectedDevice = device
+        pendingKey = .KEYCODE_WAKEUP
+        attemptingWake = true
+        status = "Wybudzam \(device.name)…"
+        remoteManager.connect(device.host)
+    }
+
+    private var rememberedDevice: RemoteDevice? {
+        guard let host = defaults.string(forKey: "remote.lastHost"),
+              let name = defaults.string(forKey: "remote.lastName") else { return nil }
+        return RemoteDevice(name: name, host: host)
+    }
+
     private func handlePairing(_ state: PairingManager.PairingState) {
         switch state {
         case .waitingCode:
@@ -107,7 +135,6 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
             needsPairingCode = false
             pairingCode = ""
             if let device = selectedDevice {
-                defaults.set(true, forKey: "remote.paired.\(device.host)")
                 status = "Połączono. Uruchamiam pilot…"
                 remoteManager.connect(device.host)
             }
@@ -122,11 +149,22 @@ final class MiBoxRemoteModel: NSObject, ObservableObject {
         switch state {
         case .paired:
             isConnected = true
+            attemptingWake = false
             status = "Pilot połączony"
+            if let key = pendingKey {
+                pendingKey = nil
+                remoteManager.send(KeyPress(key))
+            }
         case .error(let error):
             isConnected = false
+            if attemptingWake {
+                attemptingWake = false
+                pendingKey = nil
+                status = "Mi Box jest offline"
+                errorMessage = "Mi Box nie odpowiedział na wybudzanie przez usługę pilota. Niektóre modele wyłączają Wi‑Fi w głębokim uśpieniu."
+                return
+            }
             if let device = selectedDevice {
-                defaults.set(false, forKey: "remote.paired.\(device.host)")
                 status = "Wymagane parowanie"
                 pairingManager.connect(device.host, "MiBox Screen", "iPhone")
             } else { errorMessage = error.localizedDescription }

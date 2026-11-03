@@ -68,7 +68,10 @@ struct MiBoxRemoteView: View {
     private var remoteControls: some View {
         VStack(spacing: 18) {
             HStack(spacing: 22) {
-                remoteButton("power", .KEYCODE_POWER, color: .red)
+                Button { model.power() } label: {
+                    Image(systemName: "power").font(.title2).frame(width: 54, height: 54)
+                        .background(Color.secondary.opacity(0.12), in: Circle()).foregroundStyle(.red)
+                }
                 remoteButton("house.fill", .KEYCODE_HOME)
                 remoteButton("arrow.uturn.backward", .KEYCODE_BACK)
             }
