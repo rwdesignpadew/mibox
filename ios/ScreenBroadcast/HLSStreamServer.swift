@@ -8,6 +8,7 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
     private struct Segment {
         let sequence: Int
         let data: Data
+        let duration: Double
     }
 
     private let queue = DispatchQueue(label: "pl.miboxscreen.hls")
@@ -17,6 +18,9 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
     private var listener: NWListener?
     private var writer: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
+    private var audioInput: AVAssetWriterInput?
+    private var sessionStartTime: CMTime?
+    private var lastVideoTime: CMTime?
     private var initializationSegment: Data?
     private var segments: [Segment] = []
     private var nextSequence = 0
@@ -28,6 +32,8 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
         segments.removeAll(keepingCapacity: true)
         nextSequence = 0
         sessionID = UUID().uuidString
+        sessionStartTime = nil
+        lastVideoTime = nil
         let listener = try NWListener(using: .tcp, on: port)
         listener.newConnectionHandler = { [weak self] connection in
             guard let self else { return }
@@ -48,28 +54,50 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
             self.writer?.finishWriting {}
             self.writer = nil
             self.videoInput = nil
+            self.audioInput = nil
             self.listener?.cancel()
             self.listener = nil
             SharedSettings.defaults.removeObject(forKey: SharedSettings.streamURLKey)
         }
     }
 
-    func append(_ sampleBuffer: CMSampleBuffer) {
-        queue.async { [weak self] in self?.appendOnQueue(sampleBuffer) }
+    func appendVideo(_ sampleBuffer: CMSampleBuffer) {
+        queue.async { [weak self] in self?.appendVideoOnQueue(sampleBuffer) }
     }
 
-    private func appendOnQueue(_ sampleBuffer: CMSampleBuffer) {
+    func appendAudio(_ sampleBuffer: CMSampleBuffer) {
+        queue.async { [weak self] in self?.appendAudioOnQueue(sampleBuffer) }
+    }
+
+    private func appendVideoOnQueue(_ sampleBuffer: CMSampleBuffer) {
         guard CMSampleBufferDataIsReady(sampleBuffer) else { return }
         if writer == nil, !configureWriter(from: sampleBuffer) { return }
         guard let writer, let videoInput else { return }
 
+        let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        if let lastVideoTime,
+           CMTimeGetSeconds(CMTimeSubtract(presentationTime, lastVideoTime)) < (1.0 / 30.0) {
+            return
+        }
+        lastVideoTime = presentationTime
+
         if writer.status == .unknown {
             guard writer.startWriting() else { return }
-            writer.startSession(atSourceTime: CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
+            sessionStartTime = presentationTime
+            writer.startSession(atSourceTime: presentationTime)
         }
         if writer.status == .writing, videoInput.isReadyForMoreMediaData {
             videoInput.append(sampleBuffer)
         }
+    }
+
+    private func appendAudioOnQueue(_ sampleBuffer: CMSampleBuffer) {
+        guard CMSampleBufferDataIsReady(sampleBuffer),
+              let writer, writer.status == .writing,
+              let audioInput, audioInput.isReadyForMoreMediaData,
+              let sessionStartTime,
+              CMTimeCompare(CMSampleBufferGetPresentationTimeStamp(sampleBuffer), sessionStartTime) >= 0 else { return }
+        audioInput.append(sampleBuffer)
     }
 
     private func configureWriter(from sampleBuffer: CMSampleBuffer) -> Bool {
@@ -79,7 +107,7 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
             writer.delegate = self
             writer.outputFileTypeProfile = .mpeg4AppleHLS
             writer.preferredOutputSegmentInterval = CMTime(seconds: segmentDuration, preferredTimescale: 600)
-            writer.initialSegmentStartTime = .zero
+            writer.initialSegmentStartTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
 
             let sourceWidth = CVPixelBufferGetWidth(imageBuffer)
             let sourceHeight = CVPixelBufferGetHeight(imageBuffer)
@@ -103,8 +131,21 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
             input.expectsMediaDataInRealTime = true
             guard writer.canAdd(input) else { return false }
             writer.add(input)
+
+            let audioSettings: [String: Any] = [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 48_000,
+                AVNumberOfChannelsKey: 2,
+                AVEncoderBitRateKey: 128_000
+            ]
+            let audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
+            audioInput.expectsMediaDataInRealTime = true
+            guard writer.canAdd(audioInput) else { return false }
+            writer.add(audioInput)
+
             self.writer = writer
             videoInput = input
+            self.audioInput = audioInput
             return true
         } catch {
             return false
@@ -122,7 +163,11 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
             if segmentType == .initialization {
                 self.initializationSegment = segmentData
             } else {
-                self.segments.append(Segment(sequence: self.nextSequence, data: segmentData))
+                let reportedDuration = segmentReport?.trackReports
+                    .first(where: { $0.mediaType == .video })
+                    .map { CMTimeGetSeconds($0.duration) }
+                let duration = reportedDuration.flatMap { $0.isFinite && $0 > 0 ? $0 : nil } ?? self.segmentDuration
+                self.segments.append(Segment(sequence: self.nextSequence, data: segmentData, duration: duration))
                 self.nextSequence += 1
                 if self.segments.count > self.maximumSegmentCount { self.segments.removeFirst() }
             }
@@ -182,9 +227,10 @@ final class HLSStreamServer: NSObject, AVAssetWriterDelegate {
 
     private func playlist() -> String {
         let first = segments.first?.sequence ?? 0
-        var text = "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:\(first)\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-MAP:URI=\"init.mp4\"\n"
+        let targetDuration = max(1, Int(ceil(segments.map(\.duration).max() ?? segmentDuration)))
+        var text = "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:\(targetDuration)\n#EXT-X-MEDIA-SEQUENCE:\(first)\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-MAP:URI=\"init.mp4\"\n"
         for segment in segments {
-            text += "#EXTINF:1.000,\nsegment\(segment.sequence).m4s\n"
+            text += String(format: "#EXTINF:%.3f,\nsegment%d.m4s\n", segment.duration, segment.sequence)
         }
         return text
     }

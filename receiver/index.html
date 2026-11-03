@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MiBox Screen</title>
+  <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+  <style>
+    html, body, cast-media-player { width: 100%; height: 100%; margin: 0; background: #020817; }
+    cast-media-player {
+      --splash-image: none;
+      --splash-background: #020817;
+      --logo-image: none;
+      --background: #020817;
+    }
+  </style>
+</head>
+<body>
+  <cast-media-player></cast-media-player>
+  <script>
+    const context = cast.framework.CastReceiverContext.getInstance();
+    const playerManager = context.getPlayerManager();
+
+    const playbackConfig = new cast.framework.PlaybackConfig();
+    playbackConfig.segmentRequestRetryLimit = 10;
+    playbackConfig.shakaConfig = {
+      streaming: {
+        lowLatencyMode: true,
+        bufferingGoal: 2,
+        rebufferingGoal: 0.5,
+        bufferBehind: 6,
+        inaccurateManifestTolerance: 0,
+        updateIntervalSeconds: 0.25,
+        segmentPrefetchLimit: 2,
+        stallEnabled: true,
+        stallThreshold: 1,
+        stallSkip: 0.1,
+        retryParameters: {
+          maxAttempts: 10,
+          baseDelay: 100,
+          backoffFactor: 1.4,
+          fuzzFactor: 0.2,
+          timeout: 5000
+        }
+      },
+      manifest: {
+        retryParameters: {
+          maxAttempts: 10,
+          baseDelay: 100,
+          backoffFactor: 1.4,
+          fuzzFactor: 0.2,
+          timeout: 5000
+        }
+      }
+    };
+
+    playerManager.setMessageInterceptor(
+      cast.framework.messages.MessageType.LOAD,
+      request => {
+        request.media.streamType = cast.framework.messages.StreamType.LIVE;
+        request.media.contentType = 'application/x-mpegURL';
+        request.autoplay = true;
+        return request;
+      }
+    );
+
+    const options = new cast.framework.CastReceiverOptions();
+    options.useShakaForHls = true;
+    options.playbackConfig = playbackConfig;
+    options.statusText = 'Gotowy do udostępniania ekranu';
+    context.start(options);
+  </script>
+</body>
+</html>

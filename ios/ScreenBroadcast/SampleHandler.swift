@@ -20,8 +20,13 @@ final class SampleHandler: RPBroadcastSampleHandler {
     }
 
     override func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
-        if sampleBufferType == .video {
-            streamServer.append(sampleBuffer)
+        switch sampleBufferType {
+        case .video:
+            streamServer.appendVideo(sampleBuffer)
+        case .audioApp:
+            streamServer.appendAudio(sampleBuffer)
+        default:
+            break
         }
     }
 }
