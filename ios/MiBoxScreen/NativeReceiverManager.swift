@@ -18,6 +18,7 @@ final class NativeReceiverManager: NSObject, ObservableObject {
     @Published private(set) var errorMessage: String?
 
     private let browser = NetServiceBrowser()
+    private let defaults = UserDefaults.standard
     private var services: [NetService] = []
     private var socket: URLSessionWebSocketTask?
 
@@ -28,6 +29,9 @@ final class NativeReceiverManager: NSObject, ObservableObject {
 
     func start() {
         guard socket == nil else { return }
+        if let host = defaults.string(forKey: "nativeReceiver.lastHost"), !host.isEmpty {
+            connect(NativeReceiverDevice(name: "MiBox Screen", host: host, port: 8080, roomCode: ""))
+        }
         browser.searchForServices(ofType: "_miboxscreen._tcp.", inDomain: "local.")
     }
 
@@ -42,6 +46,7 @@ final class NativeReceiverManager: NSObject, ObservableObject {
         socket?.cancel(with: .goingAway, reason: nil)
         guard let url = URL(string: "ws://\(device.host):\(device.port)/signal") else { return }
         connectedDevice = device
+        defaults.set(device.host, forKey: "nativeReceiver.lastHost")
         status = "Łączenie z \(device.name)…"
         errorMessage = nil
         let task = URLSession.shared.webSocketTask(with: url)
@@ -54,6 +59,17 @@ final class NativeReceiverManager: NSObject, ObservableObject {
             "roomCode": device.roomCode,
             "isPro": false
         ])
+    }
+
+    func connectManually(_ host: String) {
+        let clean = host
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        guard !clean.isEmpty else {
+            errorMessage = "Wpisz adres IP pokazany na ekranie Mi Boxa."
+            return
+        }
+        connect(NativeReceiverDevice(name: "MiBox Screen", host: clean, port: 8080, roomCode: ""))
     }
 
     func play(_ url: URL, title: String? = nil, headers: [String: String] = [:]) {
@@ -168,8 +184,9 @@ extension NativeReceiverManager: NetServiceBrowserDelegate, NetServiceDelegate {
 
     nonisolated func netServiceBrowser(_ browser: NetServiceBrowser, didNotSearch errorDict: [String: NSNumber]) {
         Task { @MainActor in
-            status = "Nie udało się przeszukać sieci lokalnej"
-            errorMessage = "Sprawdź dostęp aplikacji do sieci lokalnej w Ustawieniach iPhone'a."
+            let code = errorDict["NSNetServicesErrorCode"]?.intValue ?? 0
+            status = "Automatyczne wyszukiwanie jest niedostępne"
+            errorMessage = "Połącz przez adres IP pokazany na telewizorze (kod wyszukiwania: \(code))."
         }
     }
 }

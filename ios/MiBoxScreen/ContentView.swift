@@ -4,6 +4,7 @@ struct ContentView: View {
     @StateObject private var receiver = NativeReceiverManager()
     @StateObject private var remote = MiBoxRemoteModel()
     @StateObject private var purchases = PurchaseManager()
+    @State private var receiverHost = ""
     @State private var showsPro = ProcessInfo.processInfo.arguments.contains("--show-pro")
 
     var body: some View {
@@ -25,6 +26,13 @@ struct ContentView: View {
                         if !receiver.isConnected {
                             Button("Szukaj ponownie") { receiver.reconnect() }
                                 .buttonStyle(.bordered)
+                            HStack {
+                                TextField("Adres IP z ekranu TV", text: $receiverHost)
+                                    .keyboardType(.numbersAndPunctuation)
+                                    .textFieldStyle(.roundedBorder)
+                                Button("Połącz") { receiver.connectManually(receiverHost) }
+                                    .buttonStyle(.borderedProminent)
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

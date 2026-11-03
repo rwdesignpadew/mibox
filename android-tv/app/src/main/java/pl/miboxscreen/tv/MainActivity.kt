@@ -10,7 +10,10 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.ui.PlayerView
 import org.json.JSONObject
+import java.net.Inet4Address
+import java.net.NetworkInterface
 import java.security.SecureRandom
+import java.util.Collections
 
 class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
     private lateinit var overlay: LinearLayout
@@ -47,6 +50,7 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
             addView(label(34f, "MiBox Screen"))
             addView(label(22f, "Odbiornik wideo jest uruchomiony"))
             addView(statusView)
+            addView(label(20f, "Adres IP: ${localIPv4Address() ?: "brak połączenia Wi-Fi"}"))
             addView(label(16f, "Kod urządzenia: $roomCode"))
         }
         setContentView(FrameLayout(this).apply {
@@ -85,6 +89,15 @@ class MainActivity : AppCompatActivity(), LocalSignalServer.Listener {
         gravity = Gravity.CENTER
         setPadding(8, 12, 8, 12)
     }
+
+    private fun localIPv4Address(): String? = runCatching {
+        Collections.list(NetworkInterface.getNetworkInterfaces())
+            .asSequence()
+            .flatMap { Collections.list(it.inetAddresses).asSequence() }
+            .filterIsInstance<Inet4Address>()
+            .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }
+            ?.hostAddress
+    }.getOrNull()
 
     override fun onSenderJoined(isPro: Boolean) = runOnUiThread {
         statusView.text = "iPhone połączony"
