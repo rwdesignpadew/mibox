@@ -26,7 +26,6 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: pl.miboxscreen.ios
-        CAST_RECEIVER_APP_ID: CC1AD845
         INFOPLIST_FILE: MiBoxScreen/Info.plist
         CODE_SIGN_ENTITLEMENTS: MiBoxScreen/MiBoxScreen.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

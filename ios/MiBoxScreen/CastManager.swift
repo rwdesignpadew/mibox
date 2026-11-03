@@ -24,18 +24,29 @@ final class CastManager: ObservableObject {
         timer = nil
     }
 
-    func loadStreamIfNeeded(_ url: URL) {
-        guard isConnected, loadedURL != url,
+    func castVideo(_ url: URL, title: String? = nil) {
+        guard isConnected,
               let client = GCKCastContext.sharedInstance().sessionManager.currentCastSession?.remoteMediaClient else {
+            errorMessage = "Najpierw wybierz Mi Box przyciskiem Cast."
             return
         }
 
         let metadata = GCKMediaMetadata(metadataType: .generic)
-        metadata.setString("Ekran iPhone’a", forKey: kGCKMetadataKeyTitle)
+        metadata.setString(title ?? "Wideo z iPhone’a", forKey: kGCKMetadataKeyTitle)
 
         let mediaBuilder = GCKMediaInformationBuilder(contentURL: url)
-        mediaBuilder.streamType = .live
-        mediaBuilder.contentType = "application/x-mpegURL"
+        let path = url.path.lowercased()
+        let isLivePlaylist = path.hasSuffix(".m3u8") || path.hasSuffix(".mpd")
+        mediaBuilder.streamType = isLivePlaylist ? .live : .buffered
+        if path.hasSuffix(".m3u8") {
+            mediaBuilder.contentType = "application/x-mpegURL"
+        } else if path.hasSuffix(".mpd") {
+            mediaBuilder.contentType = "application/dash+xml"
+        } else if path.hasSuffix(".webm") {
+            mediaBuilder.contentType = "video/webm"
+        } else {
+            mediaBuilder.contentType = "video/mp4"
+        }
         mediaBuilder.metadata = metadata
 
         let requestBuilder = GCKMediaLoadRequestDataBuilder()

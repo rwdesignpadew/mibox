@@ -7,6 +7,7 @@ enum SharedSettings {
     static let proKey = "isPro"
     static let remoteLastAdDateKey = "remoteLastAdDate"
     static let streamURLKey = "castStreamURL"
+    static let pendingVideoURLKey = "pendingVideoURL"
 
     static var defaults: UserDefaults {
         guard let defaults = UserDefaults(suiteName: appGroup) else {

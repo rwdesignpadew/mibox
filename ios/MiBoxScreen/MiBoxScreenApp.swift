@@ -7,10 +7,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        let configuredReceiverID = Bundle.main.object(forInfoDictionaryKey: "CastReceiverApplicationID") as? String
-        let receiverID = configuredReceiverID.flatMap { $0.isEmpty ? nil : $0 }
-            ?? kGCKDefaultMediaReceiverApplicationID
-        let criteria = GCKDiscoveryCriteria(applicationID: receiverID)
+        let criteria = GCKDiscoveryCriteria(applicationID: kGCKDefaultMediaReceiverApplicationID)
         let options = GCKCastOptions(discoveryCriteria: criteria)
         options.suspendSessionsWhenBackgrounded = false
         GCKCastContext.setSharedInstanceWith(options)

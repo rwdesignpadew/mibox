@@ -1,4 +1,3 @@
-import ReplayKit
 import SwiftUI
 
 struct ContentView: View {
@@ -11,7 +10,7 @@ struct ContentView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Ekran i pilot Mi Box")
+                    Text("Wideo i pilot Mi Box")
                         .font(.largeTitle.bold())
 
                     HStack(spacing: 14) {
@@ -27,17 +26,7 @@ struct ContentView: View {
                     .padding()
                     .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
 
-                    if cast.isConnected {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Udostępnianie ekranu").font(.headline)
-                            BroadcastControl().frame(height: 54)
-                            Text("Po uruchomieniu transmisji pilot poniżej pozostaje aktywny.")
-                                .font(.footnote).foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Label("Nic nie instalujesz na Mi Boxie — używany jest wbudowany Chromecast.", systemImage: "tv.and.hifispeaker.fill")
-                            .foregroundStyle(.secondary)
-                    }
+                    VideoCastView(cast: cast)
 
                     Divider()
                     Label("Pilot", systemImage: "av.remote.fill")
@@ -57,13 +46,6 @@ struct ContentView: View {
             .sheet(isPresented: $showsPro) { ProPurchaseView(purchases: purchases) }
             .task {
                 cast.start()
-                while !Task.isCancelled {
-                    if let text = SharedSettings.defaults.string(forKey: SharedSettings.streamURLKey),
-                       let url = URL(string: text) {
-                        cast.loadStreamIfNeeded(url)
-                    }
-                    try? await Task.sleep(for: .milliseconds(500))
-                }
             }
             .onDisappear { cast.stop() }
         }
@@ -89,7 +71,7 @@ private struct ProPurchaseView: View {
                         .foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 16) {
-                    benefit("rectangle.slash", "Bez reklam podczas udostępniania")
+                    benefit("rectangle.slash", "Bez reklam podczas oglądania")
                     benefit("infinity", "Dostęp Pro bez limitu czasu")
                     benefit("arrow.clockwise", "Możliwość przywrócenia zakupu")
                 }
@@ -137,52 +119,5 @@ private struct ProPurchaseView: View {
             Image(systemName: symbol).foregroundStyle(.blue).frame(width: 24)
             Text(text)
         }
-    }
-}
-
-private struct BroadcastButton: UIViewRepresentable {
-    func makeUIView(context: Context) -> FullWidthBroadcastPicker {
-        let picker = FullWidthBroadcastPicker()
-        picker.preferredExtension = "pl.miboxscreen.ios.broadcast"
-        picker.showsMicrophoneButton = false
-        picker.accessibilityLabel = "Rozpocznij udostępnianie ekranu"
-        if let button = picker.subviews.compactMap({ $0 as? UIButton }).first {
-            button.setImage(nil, for: .normal)
-            button.setTitle(nil, for: .normal)
-            button.backgroundColor = .clear
-        }
-        return picker
-    }
-
-    func updateUIView(_ uiView: FullWidthBroadcastPicker, context: Context) {
-        uiView.setNeedsLayout()
-    }
-}
-
-private final class FullWidthBroadcastPicker: RPSystemBroadcastPickerView {
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        if let button = subviews.compactMap({ $0 as? UIButton }).first {
-            button.frame = bounds
-            button.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        }
-    }
-}
-
-private struct BroadcastControl: View {
-    var body: some View {
-        BroadcastButton()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .overlay {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.blue)
-                    .overlay {
-                        Label("Rozpocznij udostępnianie", systemImage: "rectangle.on.rectangle")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                    }
-                    .allowsHitTesting(false)
-            }
-            .contentShape(Rectangle())
     }
 }
